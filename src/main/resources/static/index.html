@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>笔记工坊</title>
+    <link rel="icon" href="data:,">
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<header class="topbar">
+    <div class="brand">笔记工坊</div>
+    <nav class="nav">
+        <button data-view="notes">我的笔记</button>
+        <button data-view="public">公开笔记</button>
+        <button data-view="admin" class="admin-only hidden">管理后台</button>
+        <button id="logout" class="hidden">退出</button>
+    </nav>
+</header>
+
+<main>
+    <section id="auth-view" class="view">
+        <div class="auth-card">
+            <h2 id="auth-title">登录</h2>
+            <form id="auth-form">
+                <label>用户名<input id="username" required></label>
+                <label>密码<input id="password" type="password" required></label>
+                <label id="nickname-field" class="hidden">昵称<input id="nickname"></label>
+                <button type="submit">提交</button>
+                <button type="button" id="toggle-auth">没有账号？去注册</button>
+            </form>
+        </div>
+    </section>
+
+    <section id="notes-view" class="view hidden">
+        <div class="section-head">
+            <h2>我的笔记</h2>
+            <button id="new-note">新建笔记</button>
+        </div>
+        <div id="notes-list" class="grid"></div>
+    </section>
+
+    <section id="public-view" class="view hidden">
+        <div class="section-head"><h2>公开笔记</h2></div>
+        <div id="public-list" class="grid"></div>
+    </section>
+
+    <section id="editor-view" class="view hidden">
+        <div class="section-head"><h2 id="editor-title">新建笔记</h2></div>
+        <form id="note-form">
+            <label>标题<input id="note-title" required></label>
+            <label>书名<input id="note-book" required></label>
+            <label>可见性
+                <select id="note-visibility">
+                    <option value="0">私有</option>
+                    <option value="1">公开</option>
+                </select>
+            </label>
+            <label>正文<textarea id="note-content" rows="10" required></textarea></label>
+            <label>配图<input id="note-images" type="file" multiple accept="image/*"></label>
+            <button type="submit">保存</button>
+            <button type="button" id="cancel-editor">取消</button>
+        </form>
+    </section>
+
+    <section id="admin-view" class="view hidden">
+        <div class="section-head"><h2>管理后台</h2></div>
+        <div class="admin-stats">
+            <span>AI 调用总数：<b id="ai-total">0</b></span>
+            <span>成功：<b id="ai-success">0</b></span>
+            <span>失败：<b id="ai-failed">0</b></span>
+        </div>
+        <h3>用户</h3>
+        <div id="admin-users" class="table"></div>
+        <h3>公开笔记</h3>
+        <div id="admin-notes" class="table"></div>
+    </section>
+</main>
+
+<script src="/app.js"></script>
+</body>
+</html>

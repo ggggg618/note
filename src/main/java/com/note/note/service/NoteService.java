@@ -1,0 +1,186 @@
+package com.note.note.service;
+
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.note.common.BusinessException;
+import com.note.common.PageResult;
+import com.note.common.UserContext;
+import com.note.note.dto.NoteRequest;
+import com.note.note.dto.NoteResponse;
+import com.note.note.entity.Note;
+import com.note.note.entity.NoteImage;
+import com.note.note.mapper.NoteImageMapper;
+import com.note.note.mapper.NoteMapper;
+import com.note.util.FileStorageService;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.util.ArrayList;
+import java.util.List;
+
+@Service
+@RequiredArgsConstructor
+public class NoteService {
+
+    private final NoteMapper noteMapper;
+    private final NoteImageMapper noteImageMapper;
+    private final FileStorageService fileStorageService;
+
+    @Transactional
+    public NoteResponse createNote(Long userId, NoteRequest request) {
+        requireUser(userId);
+        Note note = new Note();
+        note.setUserId(userId);
+        note.setTitle(request.getTitle());
+        note.setContent(request.getContent());
+        note.setBookName(request.getBookName());
+        note.setVisibility(request.getVisibility() == null ? 0 : request.getVisibility());
+        note.setAuditStatus(0);
+        note.setLikeCount(0);
+        noteMapper.insert(note);
+        return buildResponse(getExistingNote(note.getId()));
+    }
+
+    @Transactional
+    public NoteResponse updateNote(Long userId, Long noteId, NoteRequest request) {
+        requireUser(userId);
+        Note note = getExistingNote(noteId);
+        if (!note.getUserId().equals(userId)) {
+            throw new BusinessException("无权限操作");
+        }
+        LambdaUpdateWrapper<Note> updateWrapper = new LambdaUpdateWrapper<Note>()
+                .eq(Note::getId, noteId)
+                .set(Note::getTitle, request.getTitle())
+                .set(Note::getContent, request.getContent())
+                .set(Note::getBookName, request.getBookName());
+        if (request.getVisibility() != null) {
+            updateWrapper.set(Note::getVisibility, request.getVisibility());
+        }
+        noteMapper.update(null, updateWrapper);
+        return buildResponse(getExistingNote(noteId));
+    }
+
+    @Transactional
+    public void deleteNote(Long userId, Long noteId) {
+        requireUser(userId);
+        Note note = getExistingNote(noteId);
+        if (!note.getUserId().equals(userId) && !UserContext.isAdmin()) {
+            throw new BusinessException("无权限操作");
+        }
+        noteMapper.deleteById(noteId);
+    }
+
+    public PageResult<NoteResponse> listMyNotes(Long userId, long page, long size) {
+        requireUser(userId);
+        Page<Note> notePage = noteMapper.selectPage(
+                new Page<>(page, size),
+                new LambdaQueryWrapper<Note>()
+                        .eq(Note::getUserId, userId)
+                        .orderByDesc(Note::getCreatedAt)
+        );
+        return toPageResult(notePage, page, size);
+    }
+
+    public PageResult<NoteResponse> listPublicNotes(long page, long size, String keyword) {
+        LambdaQueryWrapper<Note> wrapper = new LambdaQueryWrapper<Note>()
+                .eq(Note::getVisibility, 1)
+                .eq(Note::getAuditStatus, 1)
+                .orderByDesc(Note::getCreatedAt);
+        if (keyword != null && !keyword.isBlank()) {
+            String keywordLike = "%" + keyword.trim() + "%";
+            wrapper.and(w -> w.like(Note::getTitle, keywordLike)
+                    .or()
+                    .like(Note::getContent, keywordLike));
+        }
+        Page<Note> notePage = noteMapper.selectPage(new Page<>(page, size), wrapper);
+        return toPageResult(notePage, page, size);
+    }
+
+    public NoteResponse getNoteDetail(Long currentUserId, Long noteId) {
+        requireUser(currentUserId);
+        Note note = getExistingNote(noteId);
+        boolean owner = note.getUserId().equals(currentUserId);
+        boolean publicAndApproved = Integer.valueOf(1).equals(note.getVisibility())
+                && Integer.valueOf(1).equals(note.getAuditStatus());
+        if (!owner && !UserContext.isAdmin() && !publicAndApproved) {
+            throw new BusinessException(403, "无权限查看");
+        }
+        return buildResponse(note);
+    }
+
+    @Transactional
+    public List<String> uploadImages(Long userId, Long noteId, MultipartFile[] files) {
+        requireUser(userId);
+        Note note = getExistingNote(noteId);
+        if (!note.getUserId().equals(userId) && !UserContext.isAdmin()) {
+            throw new BusinessException("无权限操作");
+        }
+        List<String> urls = new ArrayList<>();
+        if (files == null || files.length == 0) {
+            return urls;
+        }
+        for (int i = 0; i < files.length; i++) {
+            String url = fileStorageService.store(files[i]);
+            NoteImage image = new NoteImage();
+            image.setNoteId(noteId);
+            image.setUrl(url);
+            image.setSortOrder(i);
+            noteImageMapper.insert(image);
+            urls.add(url);
+        }
+        return urls;
+    }
+
+    private NoteResponse buildResponse(Note note) {
+        NoteResponse response = new NoteResponse();
+        response.setId(note.getId());
+        response.setUserId(note.getUserId());
+        response.setTitle(note.getTitle());
+        response.setContent(note.getContent());
+        response.setBookName(note.getBookName());
+        response.setVisibility(note.getVisibility());
+        response.setAuditStatus(note.getAuditStatus());
+        response.setLikeCount(note.getLikeCount());
+        response.setCreatedAt(note.getCreatedAt());
+        response.setImages(listImages(note.getId()));
+        response.setAiResult(null);
+        return response;
+    }
+
+    private List<String> listImages(Long noteId) {
+        return noteImageMapper.selectList(
+                        new LambdaQueryWrapper<NoteImage>()
+                                .eq(NoteImage::getNoteId, noteId)
+                                .orderByAsc(NoteImage::getSortOrder)
+                                .orderByAsc(NoteImage::getId)
+                )
+                .stream()
+                .map(NoteImage::getUrl)
+                .toList();
+    }
+
+    private PageResult<NoteResponse> toPageResult(Page<Note> notePage, long page, long size) {
+        List<NoteResponse> records = notePage.getRecords()
+                .stream()
+                .map(this::buildResponse)
+                .toList();
+        return new PageResult<>(notePage.getTotal(), page, size, records);
+    }
+
+    private Note getExistingNote(Long noteId) {
+        Note note = noteMapper.selectById(noteId);
+        if (note == null) {
+            throw new BusinessException("笔记不存在");
+        }
+        return note;
+    }
+
+    private void requireUser(Long userId) {
+        if (userId == null) {
+            throw new BusinessException("未登录");
+        }
+    }
+}
