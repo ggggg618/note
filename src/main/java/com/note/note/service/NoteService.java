@@ -5,7 +5,10 @@ import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.note.common.BusinessException;
 import com.note.common.PageResult;
+import com.note.common.PageUtil;
 import com.note.common.UserContext;
+import com.note.ai.entity.NoteAi;
+import com.note.ai.mapper.NoteAiMapper;
 import com.note.note.dto.NoteRequest;
 import com.note.note.dto.NoteResponse;
 import com.note.note.entity.Note;
@@ -27,6 +30,7 @@ public class NoteService {
 
     private final NoteMapper noteMapper;
     private final NoteImageMapper noteImageMapper;
+    private final NoteAiMapper noteAiMapper;
     private final FileStorageService fileStorageService;
 
     @Transactional
@@ -75,6 +79,7 @@ public class NoteService {
 
     public PageResult<NoteResponse> listMyNotes(Long userId, long page, long size) {
         requireUser(userId);
+        PageUtil.check(page, size);
         Page<Note> notePage = noteMapper.selectPage(
                 new Page<>(page, size),
                 new LambdaQueryWrapper<Note>()
@@ -85,6 +90,7 @@ public class NoteService {
     }
 
     public PageResult<NoteResponse> listPublicNotes(long page, long size, String keyword) {
+        PageUtil.check(page, size);
         LambdaQueryWrapper<Note> wrapper = new LambdaQueryWrapper<Note>()
                 .eq(Note::getVisibility, 1)
                 .eq(Note::getAuditStatus, 1)
@@ -100,9 +106,8 @@ public class NoteService {
     }
 
     public NoteResponse getNoteDetail(Long currentUserId, Long noteId) {
-        requireUser(currentUserId);
         Note note = getExistingNote(noteId);
-        boolean owner = note.getUserId().equals(currentUserId);
+        boolean owner = currentUserId != null && note.getUserId().equals(currentUserId);
         boolean publicAndApproved = Integer.valueOf(1).equals(note.getVisibility())
                 && Integer.valueOf(1).equals(note.getAuditStatus());
         if (!owner && !UserContext.isAdmin() && !publicAndApproved) {
@@ -146,7 +151,9 @@ public class NoteService {
         response.setLikeCount(note.getLikeCount());
         response.setCreatedAt(note.getCreatedAt());
         response.setImages(listImages(note.getId()));
-        response.setAiResult(null);
+        NoteAi noteAi = noteAiMapper.selectOne(new LambdaQueryWrapper<NoteAi>()
+                .eq(NoteAi::getNoteId, note.getId()));
+        response.setAiResult(noteAi == null ? null : noteAi.getContent());
         return response;
     }
 

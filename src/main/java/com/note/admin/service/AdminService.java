@@ -9,7 +9,9 @@ import com.note.admin.entity.AiLog;
 import com.note.admin.mapper.AiLogMapper;
 import com.note.common.BusinessException;
 import com.note.common.PageResult;
+import com.note.common.PageUtil;
 import com.note.common.UserContext;
+import com.note.interaction.entity.Comment;
 import com.note.interaction.mapper.CommentMapper;
 import com.note.note.entity.Note;
 import com.note.note.mapper.NoteMapper;
@@ -19,7 +21,13 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
+import java.util.ArrayDeque;
+import java.util.Collections;
+import java.util.Deque;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -32,6 +40,7 @@ public class AdminService {
 
     public PageResult<UserAdminResponse> listUsers(long page, long size, String keyword) {
         checkAdmin();
+        PageUtil.check(page, size);
         LambdaQueryWrapper<User> wrapper = new LambdaQueryWrapper<>();
         if (StringUtils.hasText(keyword)) {
             wrapper.and(query -> query.like(User::getUsername, keyword)
@@ -61,6 +70,7 @@ public class AdminService {
 
     public PageResult<NoteAdminResponse> listNotes(long page, long size, Integer auditStatus) {
         checkAdmin();
+        PageUtil.check(page, size);
         LambdaQueryWrapper<Note> wrapper = new LambdaQueryWrapper<>();
         if (auditStatus != null) {
             wrapper.eq(Note::getAuditStatus, auditStatus);
@@ -100,8 +110,31 @@ public class AdminService {
 
     public void deleteComment(Long commentId) {
         checkAdmin();
-        if (commentMapper.deleteById(commentId) == 0) {
+        Comment comment = commentMapper.selectById(commentId);
+        if (comment == null) {
             throw new BusinessException("评论不存在");
+        }
+
+        List<Comment> comments = commentMapper.selectList(
+                new LambdaQueryWrapper<Comment>().eq(Comment::getNoteId, comment.getNoteId()));
+        Map<Long, List<Comment>> childrenByParentId = comments.stream()
+                .filter(item -> item.getParentId() != null)
+                .collect(java.util.stream.Collectors.groupingBy(Comment::getParentId));
+
+        Deque<Long> queue = new ArrayDeque<>();
+        Set<Long> deleteIds = new LinkedHashSet<>();
+        queue.add(commentId);
+        deleteIds.add(commentId);
+        while (!queue.isEmpty()) {
+            Long parentId = queue.poll();
+            for (Comment child : childrenByParentId.getOrDefault(parentId, Collections.emptyList())) {
+                if (deleteIds.add(child.getId())) {
+                    queue.add(child.getId());
+                }
+            }
+        }
+        for (Long deleteId : deleteIds) {
+            commentMapper.deleteById(deleteId);
         }
     }
 

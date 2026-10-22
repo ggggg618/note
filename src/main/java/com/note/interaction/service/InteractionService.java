@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.note.common.BusinessException;
 import com.note.common.PageResult;
+import com.note.common.PageUtil;
 import com.note.common.UserContext;
 import com.note.interaction.dto.AuthorResponse;
 import com.note.interaction.dto.CommentRequest;
@@ -49,9 +50,7 @@ public class InteractionService {
     @Transactional
     public void likeNote(Long userId, Long noteId) {
         requireUser(userId);
-        if (noteMapper.selectById(noteId) == null) {
-            throw new BusinessException("笔记不存在");
-        }
+        requirePublicNote(noteId);
         Long count = noteLikeMapper.selectCount(new LambdaQueryWrapper<NoteLike>()
                 .eq(NoteLike::getUserId, userId)
                 .eq(NoteLike::getNoteId, noteId));
@@ -87,6 +86,7 @@ public class InteractionService {
 
     public PageResult<NoteResponse> listMyLikes(Long userId, long page, long size) {
         requireUser(userId);
+        PageUtil.check(page, size);
         Page<NoteLike> likePage = noteLikeMapper.selectPage(new Page<>(page, size),
                 new LambdaQueryWrapper<NoteLike>()
                         .eq(NoteLike::getUserId, userId)
@@ -133,6 +133,7 @@ public class InteractionService {
 
     public PageResult<AuthorResponse> listFans(Long userId, long page, long size) {
         requireUser(userId);
+        PageUtil.check(page, size);
         Page<Follow> fanPage = followMapper.selectPage(new Page<>(page, size),
                 new LambdaQueryWrapper<Follow>()
                         .eq(Follow::getFolloweeId, userId)
@@ -147,6 +148,7 @@ public class InteractionService {
     }
 
     public PageResult<AuthorResponse> hotAuthors(long page, long size) {
+        PageUtil.check(page, size);
         Map<Long, Long> followerCounts = followMapper.selectList(null).stream()
                 .collect(Collectors.groupingBy(Follow::getFolloweeId, Collectors.counting()));
 
@@ -174,9 +176,7 @@ public class InteractionService {
 
     public CommentResponse addComment(Long userId, CommentRequest request) {
         requireUser(userId);
-        if (noteMapper.selectById(request.getNoteId()) == null) {
-            throw new BusinessException("笔记不存在");
-        }
+        requirePublicNote(request.getNoteId());
         if (request.getParentId() != null) {
             Comment parent = commentMapper.selectById(request.getParentId());
             if (parent == null || !request.getNoteId().equals(parent.getNoteId())) {
@@ -283,6 +283,18 @@ public class InteractionService {
         if (userId == null) {
             throw new BusinessException(401, "请先登录");
         }
+    }
+
+    private Note requirePublicNote(Long noteId) {
+        Note note = noteMapper.selectById(noteId);
+        if (note == null) {
+            throw new BusinessException("笔记不存在");
+        }
+        if (!Integer.valueOf(1).equals(note.getVisibility())
+                || !Integer.valueOf(1).equals(note.getAuditStatus())) {
+            throw new BusinessException("该笔记未公开或未通过审核");
+        }
+        return note;
     }
 
     private long safeCount(Long count) {
