@@ -5,6 +5,7 @@ import com.note.user.dto.LoginRequest;
 import com.note.user.dto.LoginResponse;
 import com.note.user.dto.RegisterRequest;
 import com.note.user.dto.UpdateProfileRequest;
+import com.note.user.dto.UserPublicResponse;
 import com.note.user.dto.UserResponse;
 import com.note.user.service.UserService;
 import jakarta.validation.Valid;
@@ -40,7 +41,7 @@ public class AuthController {
     }
 
     @GetMapping("/api/users/{id}")
-    public Result<UserResponse> getUser(@PathVariable Long id) {
+    public Result<UserPublicResponse> getUser(@PathVariable Long id) {
         return Result.ok(userService.getUserProfile(id));
     }
 

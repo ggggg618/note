@@ -96,8 +96,15 @@ public class InteractionService {
                         .eq(NoteLike::getUserId, userId)
                         .orderByDesc(NoteLike::getCreatedAt));
 
+        List<Long> noteIds = likePage.getRecords().stream()
+                .map(NoteLike::getNoteId)
+                .collect(Collectors.toList());
+        Map<Long, Note> noteMap = noteIds.isEmpty()
+                ? Collections.emptyMap()
+                : noteMapper.selectBatchIds(noteIds).stream()
+                        .collect(Collectors.toMap(Note::getId, note -> note));
         List<NoteResponse> records = likePage.getRecords().stream()
-                .map(like -> noteMapper.selectById(like.getNoteId()))
+                .map(like -> noteMap.get(like.getNoteId()))
                 .filter(Objects::nonNull)
                 .map(note -> new NoteResponse(note.getId(), note.getUserId(), note.getTitle(), note.getBookName(),
                         likeCount(note)))
@@ -174,8 +181,21 @@ public class InteractionService {
                         .eq(Follow::getFolloweeId, userId)
                         .orderByDesc(Follow::getCreatedAt));
 
+        List<Long> fanIds = fanPage.getRecords().stream()
+                .map(Follow::getFollowerId)
+                .collect(Collectors.toList());
+        Map<Long, User> users = authorsById(fanIds);
+        Map<Long, Long> noteCounts = noteCountsByUser(fanIds);
+        Map<Long, Long> followerCounts = followerCountsByUser(fanIds);
         List<AuthorResponse> records = fanPage.getRecords().stream()
-                .map(follow -> author(follow.getFollowerId(), null))
+                .map(follow -> {
+                    User user = users.get(follow.getFollowerId());
+                    if (user == null) {
+                        return null;
+                    }
+                    return new AuthorResponse(user.getId(), user.getUsername(), user.getNickname(), user.getAvatar(),
+                            safeCount(noteCounts.get(user.getId())), safeCount(followerCounts.get(user.getId())));
+                })
                 .filter(Objects::nonNull)
                 .collect(Collectors.toList());
 
@@ -201,8 +221,17 @@ public class InteractionService {
                 .map(Map.Entry::getKey)
                 .collect(Collectors.toList());
 
+        Map<Long, User> users = authorsById(authorIds);
+        Map<Long, Long> noteCounts = noteCountsByUser(authorIds);
         List<AuthorResponse> records = authorIds.stream()
-                .map(id -> author(id, followerCounts.get(id)))
+                .map(id -> {
+                    User user = users.get(id);
+                    if (user == null) {
+                        return null;
+                    }
+                    return new AuthorResponse(user.getId(), user.getUsername(), user.getNickname(), user.getAvatar(),
+                            safeCount(noteCounts.get(id)), safeCount(followerCounts.get(id)));
+                })
                 .filter(Objects::nonNull)
                 .collect(Collectors.toList());
 
@@ -296,22 +325,32 @@ public class InteractionService {
         log.info("删除评论: userId={}, commentId={}", userId, commentId);
     }
 
-    private AuthorResponse author(Long userId, Long knownFollowerCount) {
-        if (userId == null) {
-            return null;
+    private Map<Long, User> authorsById(List<Long> userIds) {
+        if (userIds.isEmpty()) {
+            return Collections.emptyMap();
         }
-        User user = userMapper.selectById(userId);
-        if (user == null) {
-            return null;
+        return userMapper.selectBatchIds(userIds).stream()
+                .collect(Collectors.toMap(User::getId, user -> user));
+    }
+
+    private Map<Long, Long> noteCountsByUser(List<Long> userIds) {
+        if (userIds.isEmpty()) {
+            return Collections.emptyMap();
         }
-        long noteCount = safeCount(noteMapper.selectCount(new LambdaQueryWrapper<Note>()
-                .eq(Note::getUserId, userId)));
-        long followerCount = knownFollowerCount == null
-                ? safeCount(followMapper.selectCount(new LambdaQueryWrapper<Follow>()
-                        .eq(Follow::getFolloweeId, userId)))
-                : knownFollowerCount;
-        return new AuthorResponse(user.getId(), user.getUsername(), user.getNickname(), user.getAvatar(),
-                noteCount, followerCount);
+        return noteMapper.selectList(new LambdaQueryWrapper<Note>()
+                        .in(Note::getUserId, userIds))
+                .stream()
+                .collect(Collectors.groupingBy(Note::getUserId, Collectors.counting()));
+    }
+
+    private Map<Long, Long> followerCountsByUser(List<Long> userIds) {
+        if (userIds.isEmpty()) {
+            return Collections.emptyMap();
+        }
+        return followMapper.selectList(new LambdaQueryWrapper<Follow>()
+                        .in(Follow::getFolloweeId, userIds))
+                .stream()
+                .collect(Collectors.groupingBy(Follow::getFolloweeId, Collectors.counting()));
     }
 
     private CommentResponse response(Comment comment) {

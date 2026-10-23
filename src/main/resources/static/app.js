@@ -57,6 +57,20 @@ function askText(message) {
     });
 }
 
+async function ensureCurrentUser() {
+    if (!token()) {
+        currentUserId = null;
+        return;
+    }
+    if (currentUserId != null) return;
+    try {
+        const me = await request("/api/user/me");
+        currentUserId = me.id;
+    } catch (e) {
+        currentUserId = null;
+    }
+}
+
 async function request(path, options = {}) {
     options = options || {};
     options.headers = { ...authHeaders(), ...(options.headers || {}) };
@@ -93,6 +107,7 @@ document.querySelectorAll("[data-view]").forEach((btn) => {
 let registerMode = false;
 let currentConversationId = null;
 let detailNoteId = null;
+let currentUserId = null;
 $("#toggle-auth").addEventListener("click", () => {
     registerMode = !registerMode;
     renderAuthMode();
@@ -124,6 +139,7 @@ $("#auth-form").addEventListener("submit", async (e) => {
     }
     localStorage.setItem("token", body.data.token);
     localStorage.setItem("role", body.data.user.role);
+    currentUserId = body.data.user.id;
     afterAuth();
     showView("notes");
 });
@@ -144,6 +160,7 @@ function logout() {
 function clearSession() {
     localStorage.removeItem("token");
     localStorage.removeItem("role");
+    currentUserId = null;
     afterAuth();
 }
 $("#logout").addEventListener("click", logout);
@@ -171,18 +188,23 @@ function noteCard(note) {
             notify("评论成功");
         } catch (e) { notify(e.message); }
     }));
-    actions.appendChild(actionButton("关注作者", async () => {
-        try {
-            await request(`/follows/${note.userId}`, { method: "POST" });
-            notify("关注成功");
-        } catch (e) { notify(e.message); }
-    }));
-    actions.appendChild(actionButton("AI 总结", async () => {
-        try {
-            const data = await request("/ai/summary", { method: "POST", headers: headers(), body: JSON.stringify({ noteId: note.id }) });
-            notify(data.content);
-        } catch (e) { notify(e.message); }
-    }));
+    const isOwn = currentUserId != null && note.userId != null && note.userId === currentUserId;
+    if (!isOwn && note.userId != null) {
+        actions.appendChild(actionButton("关注作者", async () => {
+            try {
+                await request(`/follows/${note.userId}`, { method: "POST" });
+                notify("关注成功");
+            } catch (e) { notify(e.message); }
+        }));
+    }
+    if (isOwn) {
+        actions.appendChild(actionButton("AI 总结", async () => {
+            try {
+                const data = await request("/ai/summary", { method: "POST", headers: headers(), body: JSON.stringify({ noteId: note.id }) });
+                notify(data.content);
+            } catch (e) { notify(e.message); }
+        }));
+    }
     el.appendChild(actions);
     return el;
 }
@@ -210,6 +232,7 @@ function openNoteDetail(id) {
 
 async function loadNoteDetail() {
     try {
+        await ensureCurrentUser();
         const note = await request(`/notes/${detailNoteId}`);
         const author = await request(`/users/${note.userId}`);
         $("#detail-title").textContent = note.title;
@@ -238,6 +261,7 @@ async function loadNoteDetail() {
 function renderDetailActions(note) {
     const actions = $("#detail-actions");
     actions.innerHTML = "";
+    const isOwn = currentUserId != null && note.userId != null && note.userId === currentUserId;
     actions.appendChild(actionButton("点赞", async () => {
         try {
             await request(`/likes/${note.id}`, { method: "POST" });
@@ -245,18 +269,22 @@ function renderDetailActions(note) {
             loadNoteDetail();
         } catch (e) { notify(e.message); }
     }));
-    actions.appendChild(actionButton("关注作者", async () => {
-        try {
-            await request(`/follows/${note.userId}`, { method: "POST" });
-            notify("关注成功");
-        } catch (e) { notify(e.message); }
-    }));
-    actions.appendChild(actionButton("AI 总结", async () => {
-        try {
-            const data = await request("/ai/summary", { method: "POST", headers: headers(), body: JSON.stringify({ noteId: note.id }) });
-            notify(data.content);
-        } catch (e) { notify(e.message); }
-    }));
+    if (!isOwn && note.userId != null) {
+        actions.appendChild(actionButton("关注作者", async () => {
+            try {
+                await request(`/follows/${note.userId}`, { method: "POST" });
+                notify("关注成功");
+            } catch (e) { notify(e.message); }
+        }));
+    }
+    if (isOwn) {
+        actions.appendChild(actionButton("AI 总结", async () => {
+            try {
+                const data = await request("/ai/summary", { method: "POST", headers: headers(), body: JSON.stringify({ noteId: note.id }) });
+                notify(data.content);
+            } catch (e) { notify(e.message); }
+        }));
+    }
 }
 
 async function loadComments(noteId) {
@@ -307,18 +335,21 @@ function formatDate(value) {
 }
 
 async function loadMyNotes() {
+    await ensureCurrentUser();
     const data = await request("/notes/my?page=1&size=50");
     $("#notes-list").innerHTML = "";
     (data.records || []).forEach((n) => $("#notes-list").appendChild(noteCard(n)));
 }
 
 async function loadPublicNotes() {
+    await ensureCurrentUser();
     const data = await request("/notes?page=1&size=50");
     $("#public-list").innerHTML = "";
     (data.records || []).forEach((n) => $("#public-list").appendChild(noteCard(n)));
 }
 
 async function loadFeeds() {
+    await ensureCurrentUser();
     const data = await request("/feeds?page=1&size=50");
     $("#feeds-list").innerHTML = "";
     (data.records || []).forEach((n) => $("#feeds-list").appendChild(noteCard(n)));

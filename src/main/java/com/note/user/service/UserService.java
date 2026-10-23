@@ -10,6 +10,7 @@ import com.note.user.dto.LoginRequest;
 import com.note.user.dto.LoginResponse;
 import com.note.user.dto.RegisterRequest;
 import com.note.user.dto.UpdateProfileRequest;
+import com.note.user.dto.UserPublicResponse;
 import com.note.user.dto.UserResponse;
 import com.note.util.FileStorageService;
 import com.note.util.JwtUtil;
@@ -72,18 +73,19 @@ public class UserService {
         return toUserResponse(user);
     }
 
-    public UserResponse getUserProfile(Long userId) {
+    public UserPublicResponse getUserProfile(Long userId) {
         User user = userMapper.selectById(userId);
         if (user == null) {
             throw new BusinessException("用户不存在");
         }
-        return toUserResponse(user);
+        return new UserPublicResponse(user.getId(), user.getUsername(), user.getNickname(), user.getAvatar());
     }
 
     public UserResponse updateProfile(UpdateProfileRequest request) {
         User user = requireCurrentUser();
-        user.setNickname(request.getNickname());
-        user.setAvatar(request.getAvatar());
+        if (request.getNickname() != null && !request.getNickname().isBlank()) {
+            user.setNickname(request.getNickname());
+        }
         userMapper.updateById(user);
         return toUserResponse(user);
     }
