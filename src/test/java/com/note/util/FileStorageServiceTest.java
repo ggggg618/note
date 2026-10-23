@@ -5,6 +5,9 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.springframework.mock.web.MockMultipartFile;
 
+import javax.imageio.ImageIO;
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayOutputStream;
 import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -16,11 +19,15 @@ class FileStorageServiceTest {
     Path tempDir;
 
     @Test
-    void acceptsRealPng() {
+    void acceptsRealPng() throws Exception {
         FileStorageService service = new FileStorageService(tempDir.toString());
-        byte[] png = new byte[]{(byte) 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0, 0, 0, 0};
+        BufferedImage image = new BufferedImage(1, 1, BufferedImage.TYPE_INT_ARGB);
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        ImageIO.write(image, "png", out);
+        byte[] png = out.toByteArray();
         String url = service.store(new MockMultipartFile("file", "a.png", "image/png", png));
         assertNotNull(url);
+        assertNotNull(service.read(url.substring("/uploads/".length())));
     }
 
     @Test

@@ -72,7 +72,9 @@ public class FileStorageService {
 
     private void compressImage(String filename) {
         Path original = root.resolve(filename);
-        Path temp = root.resolve(filename + ".thumb");
+        int dot = filename.lastIndexOf('.');
+        String extension = dot >= 0 ? filename.substring(dot) : ".png";
+        Path temp = root.resolve(filename + ".thumb" + extension);
         try {
             Thumbnails.of(original.toFile())
                     .size(1600, 1600)
