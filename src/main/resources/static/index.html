@@ -14,6 +14,8 @@
         <button data-view="notes">我的笔记</button>
         <button data-view="public">公开笔记</button>
         <button data-view="feeds">关注动态</button>
+        <button data-view="likes">我的点赞</button>
+        <button data-view="authors">热门作者</button>
         <button data-view="chat">AI 客服</button>
         <button data-view="admin" class="admin-only hidden">管理后台</button>
         <button id="logout" class="hidden">退出</button>
@@ -62,8 +64,11 @@
             <h3>评论</h3>
             <div id="detail-comments" class="comments"></div>
             <div class="comment-form">
+                <div id="detail-reply-hint" class="reply-hint hidden"></div>
                 <input id="detail-comment-input" placeholder="写下你的评论">
-                <input id="detail-comment-files" type="file" multiple accept="image/*,video/*">
+                <label class="file-btn">选择文件
+                    <input id="detail-comment-files" type="file" multiple accept="image/*,video/*">
+                </label>
                 <button id="detail-comment-send">发表</button>
             </div>
         </article>
@@ -89,6 +94,16 @@
     <section id="feeds-view" class="view hidden">
         <div class="section-head"><h2>关注动态</h2></div>
         <div id="feeds-list" class="grid"></div>
+    </section>
+
+    <section id="likes-view" class="view hidden">
+        <div class="section-head"><h2>我的点赞</h2></div>
+        <div id="likes-list" class="grid"></div>
+    </section>
+
+    <section id="authors-view" class="view hidden">
+        <div class="section-head"><h2>热门作者</h2></div>
+        <div id="authors-list" class="grid"></div>
     </section>
 
     <section id="chat-view" class="view hidden">

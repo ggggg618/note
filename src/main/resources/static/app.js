@@ -71,6 +71,19 @@ async function ensureCurrentUser() {
     }
 }
 
+async function loadLikedNotes() {
+    if (!token()) {
+        likedNoteIds = new Set();
+        return;
+    }
+    try {
+        const data = await request("/likes/me?page=1&size=500");
+        likedNoteIds = new Set((data.records || []).map((n) => n.id));
+    } catch (e) {
+        likedNoteIds = new Set();
+    }
+}
+
 async function request(path, options = {}) {
     options = options || {};
     options.headers = { ...authHeaders(), ...(options.headers || {}) };
@@ -91,6 +104,8 @@ function showView(name) {
     if (name === "notes") loadMyNotes();
     if (name === "public") loadPublicNotes();
     if (name === "feeds") loadFeeds();
+    if (name === "likes") loadMyLikes();
+    if (name === "authors") loadHotAuthors();
     if (name === "chat") loadChat();
     if (name === "admin") loadAdmin();
 }
@@ -109,6 +124,8 @@ let currentConversationId = null;
 let detailNoteId = null;
 let currentUserId = null;
 let currentAuthorId = null;
+let replyToCommentId = null;
+let likedNoteIds = new Set();
 $("#toggle-auth").addEventListener("click", () => {
     registerMode = !registerMode;
     renderAuthMode();
@@ -149,8 +166,10 @@ function afterAuth() {
     const logged = !!token();
     $("#auth-view").classList.toggle("hidden", logged);
     $("#logout").classList.toggle("hidden", !logged);
-    $(".admin-only").classList.toggle("hidden", localStorage.getItem("role") !== "ADMIN");
-    document.querySelectorAll("[data-view]").forEach((b) => b.classList.remove("hidden"));
+    const isAdmin = localStorage.getItem("role") === "ADMIN";
+    document.querySelectorAll(".admin-only").forEach((b) => b.classList.toggle("hidden", !isAdmin));
+    document.querySelectorAll("[data-view]:not(.admin-only)").forEach((b) => b.classList.remove("hidden"));
+    if (logged) loadLikedNotes();
 }
 
 function logout() {
@@ -162,6 +181,7 @@ function clearSession() {
     localStorage.removeItem("token");
     localStorage.removeItem("role");
     currentUserId = null;
+    likedNoteIds = new Set();
     afterAuth();
 }
 $("#logout").addEventListener("click", logout);
@@ -176,12 +196,26 @@ function noteCard(note) {
 
     const actions = document.createElement("div");
     actions.className = "note-actions";
-    actions.appendChild(actionButton("点赞", async () => {
+    let displayedLikeCount = likeCount;
+    const likeBtn = actionButton(likedNoteIds.has(note.id) ? "取消赞" : "点赞", async () => {
         try {
-            await request(`/likes/${note.id}`, { method: "POST" });
-            notify("点赞成功");
+            const wasLiked = likedNoteIds.has(note.id);
+            if (wasLiked) {
+                await request(`/likes/${note.id}`, { method: "DELETE" });
+                likedNoteIds.delete(note.id);
+                displayedLikeCount = Math.max(0, displayedLikeCount - 1);
+                notify("已取消点赞");
+            } else {
+                await request(`/likes/${note.id}`, { method: "POST" });
+                likedNoteIds.add(note.id);
+                displayedLikeCount += 1;
+                notify("点赞成功");
+            }
+            likeBtn.textContent = likedNoteIds.has(note.id) ? "取消赞" : "点赞";
+            el.querySelector(".note-meta").textContent = `赞 ${displayedLikeCount}`;
         } catch (e) { notify(e.message); }
-    }));
+    });
+    actions.appendChild(likeBtn);
     actions.appendChild(actionButton("评论", async () => {
         const content = await askText("输入评论内容");
         if (!content) return;
@@ -268,13 +302,23 @@ function renderDetailActions(note) {
     const actions = $("#detail-actions");
     actions.innerHTML = "";
     const isOwn = currentUserId != null && note.userId != null && note.userId === currentUserId;
-    actions.appendChild(actionButton("点赞", async () => {
+    const likeBtn = actionButton(likedNoteIds.has(note.id) ? "取消赞" : "点赞", async () => {
         try {
-            await request(`/likes/${note.id}`, { method: "POST" });
-            notify("点赞成功");
+            const wasLiked = likedNoteIds.has(note.id);
+            if (wasLiked) {
+                await request(`/likes/${note.id}`, { method: "DELETE" });
+                likedNoteIds.delete(note.id);
+                notify("已取消点赞");
+            } else {
+                await request(`/likes/${note.id}`, { method: "POST" });
+                likedNoteIds.add(note.id);
+                notify("点赞成功");
+            }
+            likeBtn.textContent = likedNoteIds.has(note.id) ? "取消赞" : "点赞";
             loadNoteDetail();
         } catch (e) { notify(e.message); }
-    }));
+    });
+    actions.appendChild(likeBtn);
     if (!isOwn && note.userId != null) {
         actions.appendChild(actionButton("关注作者", async () => {
             try {
@@ -320,6 +364,12 @@ function renderComment(comment, authors, parent) {
     const head = document.createElement("div");
     head.className = "comment-head";
     head.textContent = (author.nickname || author.username || ("用户" + comment.userId)) + " · " + formatDate(comment.createdAt);
+    const reply = document.createElement("button");
+    reply.type = "button";
+    reply.className = "comment-reply";
+    reply.textContent = "回复";
+    reply.addEventListener("click", () => startReply(comment.id, author.nickname || author.username));
+    head.appendChild(reply);
     const body = document.createElement("div");
     body.className = "comment-body";
     body.textContent = comment.content || "";
@@ -351,6 +401,22 @@ function renderCommentMedia(media, container) {
             container.appendChild(img);
         }
     });
+}
+
+function startReply(commentId, nickname) {
+    replyToCommentId = commentId;
+    const hint = $("#detail-reply-hint");
+    hint.classList.remove("hidden");
+    hint.innerHTML = `回复 @${escapeHtml(nickname)} <button type="button" id="cancel-reply">取消</button>`;
+    $("#cancel-reply").addEventListener("click", clearReply);
+    $("#detail-comment-input").focus();
+}
+
+function clearReply() {
+    replyToCommentId = null;
+    const hint = $("#detail-reply-hint");
+    hint.classList.add("hidden");
+    hint.innerHTML = "";
 }
 
 function formatDate(value) {
@@ -414,29 +480,96 @@ async function loadAuthorPage() {
 
 async function loadMyNotes() {
     await ensureCurrentUser();
+    await loadLikedNotes();
     const data = await request("/notes/my?page=1&size=50");
     $("#notes-list").innerHTML = "";
+    if (!data.records || data.records.length === 0) {
+        renderEmpty($("#notes-list"), "你还没有写过笔记，点右上角“新建笔记”开始吧");
+        return;
+    }
     (data.records || []).forEach((n) => $("#notes-list").appendChild(noteCard(n)));
 }
 
 async function loadPublicNotes() {
     await ensureCurrentUser();
+    await loadLikedNotes();
     const data = await request("/notes?page=1&size=50");
     $("#public-list").innerHTML = "";
+    if (!data.records || data.records.length === 0) {
+        renderEmpty($("#public-list"), "这里还没有公开笔记");
+        return;
+    }
     (data.records || []).forEach((n) => $("#public-list").appendChild(noteCard(n)));
 }
 
 async function loadFeeds() {
     await ensureCurrentUser();
+    await loadLikedNotes();
     const data = await request("/feeds?page=1&size=50");
     $("#feeds-list").innerHTML = "";
+    if (!data.records || data.records.length === 0) {
+        renderEmpty($("#feeds-list"), "关注作者后，他们的公开笔记会显示在这里");
+        return;
+    }
     (data.records || []).forEach((n) => $("#feeds-list").appendChild(noteCard(n)));
+}
+
+async function loadMyLikes() {
+    await ensureCurrentUser();
+    await loadLikedNotes();
+    const data = await request("/likes/me?page=1&size=50");
+    $("#likes-list").innerHTML = "";
+    if (!data.records || data.records.length === 0) {
+        renderEmpty($("#likes-list"), "你还没有点赞过笔记");
+        return;
+    }
+    (data.records || []).forEach((n) => $("#likes-list").appendChild(noteCard(n)));
+}
+
+async function loadHotAuthors() {
+    await ensureCurrentUser();
+    const data = await request("/follows/rank?page=1&size=50");
+    $("#authors-list").innerHTML = "";
+    if (!data.records || data.records.length === 0) {
+        renderEmpty($("#authors-list"), "还没有热门作者");
+        return;
+    }
+    (data.records || []).forEach((a) => $("#authors-list").appendChild(authorCard(a)));
+}
+
+function renderEmpty(container, message) {
+    const div = document.createElement("div");
+    div.className = "empty";
+    div.textContent = message;
+    container.appendChild(div);
+}
+
+function authorCard(author) {
+    const el = document.createElement("div");
+    el.className = "note-card author-card";
+    el.innerHTML = `<h3>${escapeHtml(author.nickname || author.username)}</h3><p>笔记 ${author.noteCount} · 粉丝 ${author.followerCount}</p>`;
+    const actions = document.createElement("div");
+    actions.className = "note-actions";
+    actions.appendChild(actionButton("查看主页", () => openAuthorPage(author.id)));
+    if (currentUserId != null && currentUserId !== author.id) {
+        actions.appendChild(actionButton("关注", async () => {
+            try {
+                await request(`/follows/${author.id}`, { method: "POST" });
+                notify("关注成功");
+            } catch (e) { notify(e.message); }
+        }));
+    }
+    el.appendChild(actions);
+    return el;
 }
 
 async function loadChat() {
     const data = await request("/ai/conversations");
     const conversations = Array.isArray(data) ? data : (data.records || []);
     $("#chat-list").innerHTML = "";
+    if (conversations.length === 0) {
+        renderEmpty($("#chat-list"), "还没有会话");
+    }
     conversations.forEach((conversation) => {
         const btn = document.createElement("button");
         btn.type = "button";
@@ -451,6 +584,11 @@ async function loadChat() {
         if (conversation.id === currentConversationId) btn.classList.add("active");
         $("#chat-list").appendChild(btn);
     });
+    if (!currentConversationId && conversations.length > 0) {
+        currentConversationId = conversations[0].id;
+        document.querySelector(".conversation-item")?.classList.add("active");
+        loadMessages();
+    }
 }
 
 async function loadMessages() {
@@ -461,6 +599,9 @@ async function loadMessages() {
     const data = await request(`/ai/conversations/${currentConversationId}/messages`);
     const messages = Array.isArray(data) ? data : (data.records || []);
     $("#chat-messages").innerHTML = "";
+    if (messages.length === 0) {
+        renderEmpty($("#chat-messages"), "输入问题开始咨询");
+    }
     messages.forEach((message) => {
         const role = String(message.role || "assistant").toLowerCase();
         const content = message.content || "";
@@ -536,10 +677,10 @@ async function loadAdmin() {
 
 $("#new-chat").addEventListener("click", async () => {
     try {
-        await request("/ai/conversations", { method: "POST" });
-        currentConversationId = null;
-        $("#chat-messages").innerHTML = "";
+        const conversation = await request("/ai/conversations", { method: "POST" });
+        currentConversationId = conversation.id;
         await loadChat();
+        await loadMessages();
     } catch (e) {
         notify(e.message);
     }
@@ -587,10 +728,11 @@ $("#detail-comment-send").addEventListener("click", async () => {
         await request("/comments", {
             method: "POST",
             headers: headers(),
-            body: JSON.stringify({ noteId: detailNoteId, content, media })
+            body: JSON.stringify({ noteId: detailNoteId, parentId: replyToCommentId, content, media })
         });
         $("#detail-comment-input").value = "";
         $("#detail-comment-files").value = "";
+        clearReply();
         await loadComments(detailNoteId);
     } catch (e) {
         notify(e.message);

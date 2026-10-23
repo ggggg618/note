@@ -136,7 +136,9 @@ public class AiService {
         LocalDateTime now = LocalDateTime.now();
         insertMessage(conversationId, "user", request.getContent(), now);
         String userPrompt = context + "用户：" + request.getContent();
-        String systemPrompt = "你是笔记工坊平台的智能客服。只回答与本平台功能、笔记管理、账号、AI 辅助阅读等平台使用相关的问题；遇到与平台无关的问题时，请礼貌拒绝并引导用户咨询平台相关问题。";
+        String systemPrompt = "你是笔记工坊平台的智能客服。只回答与本平台功能、笔记管理、账号、AI 辅助阅读等平台使用相关的问题；遇到与平台无关的问题时，请礼貌拒绝并引导用户咨询平台相关问题。"
+                + "平台实际功能路径如下：发布公开笔记请点击顶部“我的笔记”，再点“新建笔记”，填写后选择“公开”并保存，随后等待管理员审核；"
+                + "查看公开笔记在顶部“公开笔记”；关注动态在“关注动态”；AI 总结在笔记详情或卡片上；AI 客服在“AI 客服”。请按这些真实入口回答，不要编造“创作中心、发布笔记”等不存在的入口。";
 
         String reply = callAi(userId, "CHAT", systemPrompt, userPrompt);
         ConversationMessage assistantMessage = insertMessage(conversationId, "assistant", reply, LocalDateTime.now());
