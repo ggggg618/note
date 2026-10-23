@@ -64,7 +64,7 @@ async function ensureCurrentUser() {
     }
     if (currentUserId != null) return;
     try {
-        const me = await request("/api/user/me");
+        const me = await request("/user/me");
         currentUserId = me.id;
     } catch (e) {
         currentUserId = null;
@@ -77,7 +77,7 @@ async function loadLikedNotes() {
         return;
     }
     try {
-        const data = await request("/likes/me?page=1&size=500");
+        const data = await request("/likes/me?page=1&size=100");
         likedNoteIds = new Set((data.records || []).map((n) => n.id));
     } catch (e) {
         likedNoteIds = new Set();
@@ -125,6 +125,7 @@ let detailNoteId = null;
 let currentUserId = null;
 let currentAuthorId = null;
 let replyToCommentId = null;
+let editingNoteId = null;
 let likedNoteIds = new Set();
 $("#toggle-auth").addEventListener("click", () => {
     registerMode = !registerMode;
@@ -167,8 +168,14 @@ function afterAuth() {
     $("#auth-view").classList.toggle("hidden", logged);
     $("#logout").classList.toggle("hidden", !logged);
     const isAdmin = localStorage.getItem("role") === "ADMIN";
-    document.querySelectorAll(".admin-only").forEach((b) => b.classList.toggle("hidden", !isAdmin));
-    document.querySelectorAll("[data-view]:not(.admin-only)").forEach((b) => b.classList.remove("hidden"));
+    document.querySelectorAll(".admin-only").forEach((b) => b.classList.toggle("hidden", !(logged && isAdmin)));
+    document.querySelectorAll("[data-view]:not(.admin-only)").forEach((b) => {
+        if (logged) {
+            b.classList.remove("hidden");
+        } else {
+            b.classList.toggle("hidden", b.dataset.view !== "public");
+        }
+    });
     if (logged) loadLikedNotes();
 }
 
@@ -196,39 +203,41 @@ function noteCard(note) {
 
     const actions = document.createElement("div");
     actions.className = "note-actions";
-    let displayedLikeCount = likeCount;
-    const likeBtn = actionButton(likeLabel(likedNoteIds.has(note.id)), async () => {
-        try {
-            const wasLiked = likedNoteIds.has(note.id);
-            if (wasLiked) {
-                await request(`/likes/${note.id}`, { method: "DELETE" });
-                likedNoteIds.delete(note.id);
-                displayedLikeCount = Math.max(0, displayedLikeCount - 1);
-                notify("已取消点赞");
-            } else {
-                await request(`/likes/${note.id}`, { method: "POST" });
-                likedNoteIds.add(note.id);
-                displayedLikeCount += 1;
-                notify("点赞成功");
-            }
-            likeBtn.textContent = likeLabel(likedNoteIds.has(note.id));
-            el.querySelector(".note-meta").textContent = `赞 ${displayedLikeCount}`;
-        } catch (e) { notify(e.message); }
-    });
-    actions.appendChild(likeBtn);
-    actions.appendChild(actionButton("评论", async () => {
-        const content = await askText("输入评论内容");
-        if (!content) return;
-        try {
-            await request("/comments", { method: "POST", headers: headers(), body: JSON.stringify({ noteId: note.id, content }) });
-            notify("评论成功");
-        } catch (e) { notify(e.message); }
-    }));
-    if (note.userId != null) {
-        actions.appendChild(actionButton("作者主页", () => openAuthorPage(note.userId)));
-    }
     const isOwn = currentUserId != null && note.userId != null && note.userId === currentUserId;
+    const isPrivate = note.visibility === 0;
+    let displayedLikeCount = likeCount;
+
+    if (!isPrivate) {
+        const likeBtn = actionButton(likeLabel(likedNoteIds.has(note.id)), async () => {
+            try {
+                const wasLiked = likedNoteIds.has(note.id);
+                if (wasLiked) {
+                    await request(`/likes/${note.id}`, { method: "DELETE" });
+                    likedNoteIds.delete(note.id);
+                    displayedLikeCount = Math.max(0, displayedLikeCount - 1);
+                    notify("已取消点赞");
+                } else {
+                    await request(`/likes/${note.id}`, { method: "POST" });
+                    likedNoteIds.add(note.id);
+                    displayedLikeCount += 1;
+                    notify("点赞成功");
+                }
+                likeBtn.textContent = likeLabel(likedNoteIds.has(note.id));
+                el.querySelector(".note-meta").textContent = `赞 ${displayedLikeCount}`;
+            } catch (e) { notify(e.message); }
+        });
+        actions.appendChild(likeBtn);
+        actions.appendChild(actionButton("评论", async () => {
+            const content = await askText("输入评论内容");
+            if (!content) return;
+            try {
+                await request("/comments", { method: "POST", headers: headers(), body: JSON.stringify({ noteId: note.id, content }) });
+                notify("评论成功");
+            } catch (e) { notify(e.message); }
+        }));
+    }
     if (!isOwn && note.userId != null) {
+        actions.appendChild(actionButton("作者主页", () => openAuthorPage(note.userId)));
         actions.appendChild(actionButton("关注作者", async () => {
             try {
                 await request(`/follows/${note.userId}`, { method: "POST" });
@@ -237,6 +246,7 @@ function noteCard(note) {
         }));
     }
     if (isOwn) {
+        actions.appendChild(actionButton("编辑", () => openEditor(note)));
         actions.appendChild(actionButton("AI 总结", async () => {
             try {
                 const data = await request("/ai/summary", { method: "POST", headers: headers(), body: JSON.stringify({ noteId: note.id }) });
@@ -626,11 +636,19 @@ async function loadMessages() {
     $("#chat-messages").scrollTop = $("#chat-messages").scrollHeight;
 }
 
-$("#new-note").addEventListener("click", () => {
+function openEditor(note) {
+    editingNoteId = note ? note.id : null;
     $("#note-form").reset();
-    $("#editor-title").textContent = "新建笔记";
+    $("#editor-title").textContent = note ? "编辑笔记" : "新建笔记";
+    $("#note-title").value = note ? (note.title || "") : "";
+    $("#note-book").value = note ? (note.bookName || "") : "";
+    $("#note-content").value = note ? (note.content || "") : "";
+    $("#note-visibility").value = note && note.visibility != null ? note.visibility : 0;
+    $("#note-images").value = "";
     showView("editor");
-});
+}
+
+$("#new-note").addEventListener("click", () => openEditor(null));
 $("#cancel-editor").addEventListener("click", () => showView("notes"));
 $("#note-form").addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -640,13 +658,15 @@ $("#note-form").addEventListener("submit", async (e) => {
         bookName: $("#note-book").value,
         visibility: Number($("#note-visibility").value)
     };
-    const data = await request("/notes", { method: "POST", headers: headers(), body: JSON.stringify(payload) });
+    const path = editingNoteId ? `/notes/${editingNoteId}` : "/notes";
+    const data = await request(path, { method: editingNoteId ? "PUT" : "POST", headers: headers(), body: JSON.stringify(payload) });
     const files = $("#note-images").files;
     if (files.length) {
         const fd = new FormData();
         for (const f of files) fd.append("files", f);
         await fetch(API + "/notes/" + data.id + "/images", { method: "POST", headers: authHeaders(), body: fd });
     }
+    editingNoteId = null;
     showView("notes");
 });
 
