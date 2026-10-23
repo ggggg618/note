@@ -29,6 +29,7 @@ Authorization: Bearer <token>
 | GET | `/api/user/me` | 查看当前用户 | 登录 |
 | PUT | `/api/user/me` | 修改昵称、头像 | 登录 |
 | POST | `/api/user/avatar` | 上传头像（`file`） | 登录 |
+| GET | `/api/users/{id}` | 查看公开用户信息 | 公开 |
 
 ## 笔记
 

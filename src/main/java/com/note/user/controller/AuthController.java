@@ -46,7 +46,7 @@ public class AuthController {
     }
 
     @PutMapping("/api/user/me")
-    public Result<UserResponse> updateProfile(@RequestBody UpdateProfileRequest request) {
+    public Result<UserResponse> updateProfile(@Valid @RequestBody UpdateProfileRequest request) {
         return Result.ok(userService.updateProfile(request));
     }
 
