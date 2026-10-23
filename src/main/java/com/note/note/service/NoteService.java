@@ -1,5 +1,7 @@
 package com.note.note.service;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
@@ -45,6 +47,7 @@ public class NoteService {
     private final NoteLikeMapper noteLikeMapper;
     private final CommentMapper commentMapper;
     private final FileStorageService fileStorageService;
+    private final ObjectMapper objectMapper;
 
     @Transactional
     public NoteResponse createNote(Long userId, NoteRequest request) {
@@ -108,9 +111,24 @@ public class NoteService {
                 .eq(NoteImage::getNoteId, noteId));
         noteLikeMapper.delete(new LambdaQueryWrapper<NoteLike>()
                 .eq(NoteLike::getNoteId, noteId));
+        List<Comment> comments = commentMapper.selectList(new LambdaQueryWrapper<Comment>()
+                .eq(Comment::getNoteId, noteId));
+        comments.forEach(comment -> parseMedia(comment.getMedia()).forEach(fileStorageService::delete));
         commentMapper.delete(new LambdaQueryWrapper<Comment>()
                 .eq(Comment::getNoteId, noteId));
         log.info("删除笔记: userId={}, noteId={}", userId, noteId);
+    }
+
+    private List<String> parseMedia(String media) {
+        if (media == null || media.isBlank()) {
+            return Collections.emptyList();
+        }
+        try {
+            return objectMapper.readValue(media, new TypeReference<List<String>>() {
+            });
+        } catch (Exception e) {
+            return Collections.emptyList();
+        }
     }
 
     public PageResult<NoteResponse> listMyNotes(Long userId, long page, long size) {

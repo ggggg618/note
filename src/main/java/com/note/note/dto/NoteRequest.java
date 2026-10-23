@@ -12,6 +12,7 @@ public class NoteRequest {
     private String title;
 
     @NotBlank(message = "内容不能为空")
+    @Size(max = 20000, message = "内容长度不能超过20000字")
     private String content;
 
     @NotBlank(message = "书名不能为空")

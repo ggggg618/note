@@ -452,6 +452,21 @@ function renderComment(comment, authors, parent) {
     reply.textContent = "回复";
     reply.addEventListener("click", () => startReply(comment.id, author.nickname || author.username));
     head.appendChild(reply);
+    if (currentUserId === comment.userId || localStorage.getItem("role") === "ADMIN") {
+        const del = document.createElement("button");
+        del.type = "button";
+        del.className = "comment-reply";
+        del.textContent = "删除";
+        del.addEventListener("click", async () => {
+            if (!(await confirmAction("确定删除这条评论吗？"))) return;
+            try {
+                await request(`/comments/${comment.id}`, { method: "DELETE" });
+                notify("已删除");
+                await loadComments(detailNoteId);
+            } catch (e) { notify(e.message); }
+        });
+        head.appendChild(del);
+    }
     const body = document.createElement("div");
     body.className = "comment-body";
     body.textContent = comment.content || "";
@@ -657,6 +672,8 @@ async function loadChat() {
         renderEmpty($("#chat-list"), "还没有会话");
     }
     conversations.forEach((conversation) => {
+        const wrap = document.createElement("div");
+        wrap.className = "conversation-item-wrap";
         const btn = document.createElement("button");
         btn.type = "button";
         btn.className = "conversation-item";
@@ -668,7 +685,24 @@ async function loadChat() {
             loadMessages();
         });
         if (conversation.id === currentConversationId) btn.classList.add("active");
-        $("#chat-list").appendChild(btn);
+        const del = document.createElement("button");
+        del.type = "button";
+        del.className = "conversation-delete";
+        del.textContent = "删除";
+        del.addEventListener("click", async () => {
+            if (!(await confirmAction("确定删除这个会话吗？"))) return;
+            try {
+                await request(`/ai/conversations/${conversation.id}`, { method: "DELETE" });
+                if (currentConversationId === conversation.id) {
+                    currentConversationId = null;
+                    $("#chat-messages").innerHTML = "";
+                }
+                notify("已删除");
+                await loadChat();
+            } catch (e) { notify(e.message); }
+        });
+        wrap.append(btn, del);
+        $("#chat-list").appendChild(wrap);
     });
     if (!currentConversationId && conversations.length > 0) {
         currentConversationId = conversations[0].id;
