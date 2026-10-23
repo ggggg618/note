@@ -9,6 +9,10 @@ import com.note.common.PageUtil;
 import com.note.common.UserContext;
 import com.note.ai.entity.NoteAi;
 import com.note.ai.mapper.NoteAiMapper;
+import com.note.interaction.entity.Comment;
+import com.note.interaction.entity.NoteLike;
+import com.note.interaction.mapper.CommentMapper;
+import com.note.interaction.mapper.NoteLikeMapper;
 import com.note.note.dto.NoteRequest;
 import com.note.note.dto.NoteResponse;
 import com.note.note.entity.Note;
@@ -33,6 +37,8 @@ public class NoteService {
     private final NoteMapper noteMapper;
     private final NoteImageMapper noteImageMapper;
     private final NoteAiMapper noteAiMapper;
+    private final NoteLikeMapper noteLikeMapper;
+    private final CommentMapper commentMapper;
     private final FileStorageService fileStorageService;
 
     @Transactional
@@ -62,10 +68,15 @@ public class NoteService {
                 .eq(Note::getId, noteId)
                 .set(Note::getTitle, request.getTitle())
                 .set(Note::getContent, request.getContent())
-                .set(Note::getBookName, request.getBookName())
-                .set(Note::getAuditStatus, 0);
+                .set(Note::getBookName, request.getBookName());
+        boolean becomesPublic = request.getVisibility() != null
+                ? request.getVisibility() == 1
+                : Integer.valueOf(1).equals(note.getVisibility());
         if (request.getVisibility() != null) {
             updateWrapper.set(Note::getVisibility, request.getVisibility());
+        }
+        if (becomesPublic) {
+            updateWrapper.set(Note::getAuditStatus, 0);
         }
         noteMapper.update(null, updateWrapper);
         log.info("更新笔记: userId={}, noteId={}", userId, noteId);
@@ -80,6 +91,12 @@ public class NoteService {
             throw new BusinessException("无权限操作");
         }
         noteMapper.deleteById(noteId);
+        noteImageMapper.delete(new LambdaQueryWrapper<NoteImage>()
+                .eq(NoteImage::getNoteId, noteId));
+        noteLikeMapper.delete(new LambdaQueryWrapper<NoteLike>()
+                .eq(NoteLike::getNoteId, noteId));
+        commentMapper.delete(new LambdaQueryWrapper<Comment>()
+                .eq(Comment::getNoteId, noteId));
         log.info("删除笔记: userId={}, noteId={}", userId, noteId);
     }
 

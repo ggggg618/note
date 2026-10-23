@@ -31,8 +31,12 @@ mybatis-plus:
       logic-not-delete-value: 0
 
 jwt:
-  secret: ${JWT_SECRET:note-workshop-secret-key-please-change-in-production-0123456789}
+  secret: ${JWT_SECRET:note-workshop-dev-secret-change-before-production-9f8a7b6c5d4e3f21}
   expire-hours: 24
 
 file:
   upload-dir: ${UPLOAD_DIR:uploads}
+
+app:
+  admin:
+    password: ${ADMIN_PASSWORD:admin123}
