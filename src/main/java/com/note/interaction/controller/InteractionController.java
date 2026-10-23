@@ -5,6 +5,7 @@ import com.note.common.PageResult;
 import com.note.common.Result;
 import com.note.common.UserContext;
 import com.note.interaction.dto.AuthorResponse;
+import com.note.interaction.dto.AuthorStatsResponse;
 import com.note.interaction.dto.CommentRequest;
 import com.note.interaction.dto.CommentResponse;
 import com.note.interaction.dto.NoteResponse;
@@ -78,6 +79,11 @@ public class InteractionController {
             @RequestParam(defaultValue = "1") long page,
             @RequestParam(defaultValue = "10") long size) {
         return Result.ok(interactionService.hotAuthors(page, size));
+    }
+
+    @GetMapping("/api/users/{userId}/stats")
+    public Result<AuthorStatsResponse> authorStats(@PathVariable Long userId) {
+        return Result.ok(interactionService.authorStats(userId));
     }
 
     @PostMapping("/api/comments")

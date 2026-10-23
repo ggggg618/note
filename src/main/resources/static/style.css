@@ -76,6 +76,39 @@ button.primary, button[type="submit"] { background: var(--accent); color: #fff; 
 .comment-children { margin-top: 10px; padding-left: 12px; }
 .comment-form { display: flex; gap: 8px; }
 .comment-form input { flex: 1; }
+.link-btn {
+    background: none;
+    border: none;
+    color: var(--accent);
+    padding: 0;
+    cursor: pointer;
+    font: inherit;
+}
+.author-profile {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 18px;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    margin-bottom: 20px;
+}
+.author-avatar {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    background: var(--accent-2);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    overflow: hidden;
+}
+.author-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.author-name { font-size: 20px; font-weight: 700; }
+.author-stats { color: var(--muted); margin: 8px 0; }
 .auth-card { max-width: 360px; margin: 60px auto; }
 form { display: flex; flex-direction: column; gap: 12px; }
 label { display: flex; flex-direction: column; gap: 6px; font-size: 14px; }

@@ -8,6 +8,7 @@ import com.note.common.PageResult;
 import com.note.common.PageUtil;
 import com.note.common.UserContext;
 import com.note.interaction.dto.AuthorResponse;
+import com.note.interaction.dto.AuthorStatsResponse;
 import com.note.interaction.dto.CommentRequest;
 import com.note.interaction.dto.CommentResponse;
 import com.note.interaction.dto.NoteResponse;
@@ -236,6 +237,19 @@ public class InteractionService {
                 .collect(Collectors.toList());
 
         return new PageResult<>(total, page, size, records);
+    }
+
+    public AuthorStatsResponse authorStats(Long userId) {
+        if (userMapper.selectById(userId) == null) {
+            throw new BusinessException("用户不存在");
+        }
+        long noteCount = safeCount(noteMapper.selectCount(new LambdaQueryWrapper<Note>()
+                .eq(Note::getUserId, userId)));
+        long followerCount = safeCount(followMapper.selectCount(new LambdaQueryWrapper<Follow>()
+                .eq(Follow::getFolloweeId, userId)));
+        long followingCount = safeCount(followMapper.selectCount(new LambdaQueryWrapper<Follow>()
+                .eq(Follow::getFollowerId, userId)));
+        return new AuthorStatsResponse(noteCount, followerCount, followingCount);
     }
 
     public CommentResponse addComment(Long userId, CommentRequest request) {

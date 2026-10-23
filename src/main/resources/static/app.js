@@ -108,6 +108,7 @@ let registerMode = false;
 let currentConversationId = null;
 let detailNoteId = null;
 let currentUserId = null;
+let currentAuthorId = null;
 $("#toggle-auth").addEventListener("click", () => {
     registerMode = !registerMode;
     renderAuthMode();
@@ -189,6 +190,9 @@ function noteCard(note) {
             notify("评论成功");
         } catch (e) { notify(e.message); }
     }));
+    if (note.userId != null) {
+        actions.appendChild(actionButton("作者主页", () => openAuthorPage(note.userId)));
+    }
     const isOwn = currentUserId != null && note.userId != null && note.userId === currentUserId;
     if (!isOwn && note.userId != null) {
         actions.appendChild(actionButton("关注作者", async () => {
@@ -237,7 +241,8 @@ async function loadNoteDetail() {
         const note = await request(`/notes/${detailNoteId}`);
         const author = await request(`/users/${note.userId}`);
         $("#detail-title").textContent = note.title;
-        $("#detail-meta").textContent = `${author.nickname || author.username} · ${formatDate(note.createdAt)} · 点赞 ${note.likeCount}`;
+        $("#detail-meta").innerHTML = `<button class="link-btn" id="detail-author">${escapeHtml(author.nickname || author.username)}</button> · ${formatDate(note.createdAt)} · 点赞 ${note.likeCount}`;
+        $("#detail-author").addEventListener("click", () => openAuthorPage(note.userId));
         $("#detail-book").textContent = "书名：" + (note.bookName || "");
         $("#detail-content").textContent = note.content || "";
 
@@ -333,6 +338,58 @@ function formatDate(value) {
     const d = new Date(value);
     if (Number.isNaN(d.getTime())) return String(value);
     return d.toLocaleString("zh-CN", { hour12: false });
+}
+
+function showAuthor() {
+    document.querySelectorAll(".view").forEach((v) => v.classList.add("hidden"));
+    $("#author-view").classList.remove("hidden");
+}
+
+function openAuthorPage(userId) {
+    currentAuthorId = userId;
+    showAuthor();
+    loadAuthorPage();
+}
+
+async function loadAuthorPage() {
+    try {
+        await ensureCurrentUser();
+        const author = await request(`/users/${currentAuthorId}`);
+        const stats = await request(`/users/${currentAuthorId}/stats`);
+        const notes = await request(`/users/${currentAuthorId}/notes?page=1&size=50`);
+
+        $("#author-name").textContent = author.nickname || author.username;
+        const avatar = $("#author-avatar");
+        avatar.innerHTML = "";
+        if (author.avatar) {
+            const img = document.createElement("img");
+            img.src = author.avatar;
+            img.alt = "头像";
+            avatar.appendChild(img);
+        } else {
+            avatar.textContent = (author.nickname || author.username).slice(0, 1);
+        }
+        $("#author-stats").innerHTML = `笔记 ${stats.noteCount} · 粉丝 ${stats.followerCount} · 关注 ${stats.followingCount}`;
+
+        const followWrap = $("#author-follow");
+        followWrap.innerHTML = "";
+        if (currentUserId != null && currentUserId !== currentAuthorId) {
+            followWrap.appendChild(actionButton("关注", async () => {
+                try {
+                    await request(`/follows/${currentAuthorId}`, { method: "POST" });
+                    notify("关注成功");
+                    loadAuthorPage();
+                } catch (e) { notify(e.message); }
+            }));
+        }
+
+        const list = $("#author-notes");
+        list.innerHTML = "";
+        (notes.records || []).forEach((n) => list.appendChild(noteCard(n)));
+    } catch (e) {
+        notify(e.message);
+        showView("public");
+    }
 }
 
 async function loadMyNotes() {
@@ -489,6 +546,7 @@ $("#chat-send").addEventListener("click", async () => {
 });
 
 $("#back-detail").addEventListener("click", () => showView("public"));
+$("#back-author").addEventListener("click", () => showView("public"));
 $("#detail-comment-send").addEventListener("click", async () => {
     const content = $("#detail-comment-input").value.trim();
     if (!content) {
