@@ -2,6 +2,7 @@ package com.note.util;
 
 import com.note.common.BusinessException;
 import lombok.extern.slf4j.Slf4j;
+import net.coobird.thumbnailator.Thumbnails;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -58,12 +59,33 @@ public class FileStorageService {
         String filename = UUID.randomUUID() + "." + extension;
         try {
             Files.copy(file.getInputStream(), root.resolve(filename), StandardCopyOption.REPLACE_EXISTING);
+            if (image) {
+                compressImage(filename);
+            }
         } catch (IOException e) {
             log.error("文件保存失败: {}", filename, e);
             throw new BusinessException("Failed to store file");
         }
         log.info("文件保存成功: {}", filename);
         return "/uploads/" + filename;
+    }
+
+    private void compressImage(String filename) {
+        Path original = root.resolve(filename);
+        Path temp = root.resolve(filename + ".thumb");
+        try {
+            Thumbnails.of(original.toFile())
+                    .size(1600, 1600)
+                    .keepAspectRatio(true)
+                    .toFile(temp.toFile());
+            Files.move(temp, original, StandardCopyOption.REPLACE_EXISTING);
+        } catch (IOException e) {
+            log.warn("图片压缩失败，保留原图: {}", filename, e);
+            try {
+                Files.deleteIfExists(temp);
+            } catch (IOException ignored) {
+            }
+        }
     }
 
     public void delete(String url) {
