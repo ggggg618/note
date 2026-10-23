@@ -23,6 +23,8 @@ public class Comment {
 
     private String content;
 
+    private String media;
+
     private LocalDateTime createdAt;
 
     private LocalDateTime updatedAt;

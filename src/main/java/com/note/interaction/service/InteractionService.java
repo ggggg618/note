@@ -1,5 +1,7 @@
 package com.note.interaction.service;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
@@ -29,6 +31,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Deque;
 import java.util.LinkedHashMap;
@@ -49,6 +52,7 @@ public class InteractionService {
     private final CommentMapper commentMapper;
     private final NoteMapper noteMapper;
     private final UserMapper userMapper;
+    private final ObjectMapper objectMapper;
 
     @Transactional
     public void likeNote(Long userId, Long noteId) {
@@ -268,6 +272,7 @@ public class InteractionService {
         comment.setUserId(userId);
         comment.setParentId(request.getParentId());
         comment.setContent(request.getContent());
+        comment.setMedia(serializeMedia(request.getMedia()));
         comment.setCreatedAt(now);
         comment.setUpdatedAt(now);
         comment.setDeleted(0);
@@ -378,7 +383,31 @@ public class InteractionService {
                 .map(child -> response(child, childrenByParentId))
                 .collect(Collectors.toList());
         return new CommentResponse(comment.getId(), comment.getNoteId(), comment.getUserId(),
-                comment.getParentId(), comment.getContent(), comment.getCreatedAt(), children);
+                comment.getParentId(), comment.getContent(), parseMedia(comment.getMedia()),
+                comment.getCreatedAt(), children);
+    }
+
+    private String serializeMedia(List<String> media) {
+        if (media == null || media.isEmpty()) {
+            return null;
+        }
+        try {
+            return objectMapper.writeValueAsString(media);
+        } catch (Exception e) {
+            throw new BusinessException("评论媒体格式错误");
+        }
+    }
+
+    private List<String> parseMedia(String media) {
+        if (media == null || media.isBlank()) {
+            return Collections.emptyList();
+        }
+        try {
+            return objectMapper.readValue(media, new TypeReference<List<String>>() {
+            });
+        } catch (Exception e) {
+            return Collections.emptyList();
+        }
     }
 
     private void requireUser(Long userId) {

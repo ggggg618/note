@@ -22,6 +22,8 @@ public class CommentResponse {
 
     private String content;
 
+    private List<String> media;
+
     private LocalDateTime createdAt;
 
     private List<CommentResponse> children;

@@ -73,6 +73,7 @@ button.primary, button[type="submit"] { background: var(--accent); color: #fff; 
 .comments { display: flex; flex-direction: column; gap: 12px; margin: 12px 0 16px; }
 .comment { border-left: 3px solid var(--line); padding-left: 12px; }
 .comment-head { color: var(--muted); font-size: 13px; margin-bottom: 4px; }
+.comment-media { display: block; max-width: 240px; max-height: 240px; margin-top: 8px; border-radius: 6px; border: 1px solid var(--line); }
 .comment-children { margin-top: 10px; padding-left: 12px; }
 .comment-form { display: flex; gap: 8px; }
 .comment-form input { flex: 1; }

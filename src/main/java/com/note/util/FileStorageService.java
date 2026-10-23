@@ -19,8 +19,10 @@ import java.util.UUID;
 @Slf4j
 public class FileStorageService {
 
-    private static final Set<String> ALLOWED_EXTENSIONS =
+    private static final Set<String> IMAGE_EXTENSIONS =
             Set.of("jpg", "jpeg", "png", "gif", "webp");
+    private static final Set<String> VIDEO_EXTENSIONS =
+            Set.of("mp4", "mov", "webm", "m4v");
 
     private final Path root;
 
@@ -43,10 +45,13 @@ public class FileStorageService {
         if (dot >= 0) {
             extension = original.substring(dot + 1).toLowerCase(Locale.ROOT);
         }
-        if (!ALLOWED_EXTENSIONS.contains(extension)) {
+        boolean image = IMAGE_EXTENSIONS.contains(extension);
+        boolean video = VIDEO_EXTENSIONS.contains(extension);
+        if (!image && !video) {
             throw new BusinessException("Unsupported file type");
         }
-        if (file.getSize() > 10 * 1024 * 1024) {
+        long maxSize = video ? 50L * 1024 * 1024 : 10L * 1024 * 1024;
+        if (file.getSize() > maxSize) {
             throw new BusinessException("File is too large");
         }
         String filename = UUID.randomUUID() + "." + extension;

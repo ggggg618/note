@@ -324,12 +324,32 @@ function renderComment(comment, authors, parent) {
     body.className = "comment-body";
     body.textContent = comment.content || "";
     div.append(head, body);
+    renderCommentMedia(comment.media, div);
     parent.appendChild(div);
     (comment.children || []).forEach((child) => {
         const wrap = document.createElement("div");
         wrap.className = "comment-children";
         renderComment(child, authors, wrap);
         div.appendChild(wrap);
+    });
+}
+
+function renderCommentMedia(media, container) {
+    (media || []).forEach((url) => {
+        const lower = String(url).toLowerCase();
+        if (lower.endsWith(".mp4") || lower.endsWith(".mov") || lower.endsWith(".webm") || lower.endsWith(".m4v")) {
+            const video = document.createElement("video");
+            video.src = url;
+            video.controls = true;
+            video.className = "comment-media";
+            container.appendChild(video);
+        } else {
+            const img = document.createElement("img");
+            img.src = url;
+            img.alt = "评论图片";
+            img.className = "comment-media";
+            container.appendChild(img);
+        }
     });
 }
 
@@ -549,17 +569,28 @@ $("#back-detail").addEventListener("click", () => showView("public"));
 $("#back-author").addEventListener("click", () => showView("public"));
 $("#detail-comment-send").addEventListener("click", async () => {
     const content = $("#detail-comment-input").value.trim();
-    if (!content) {
-        notify("请输入评论内容");
+    const files = $("#detail-comment-files").files;
+    if (!content && files.length === 0) {
+        notify("请输入评论内容或选择照片/视频");
         return;
     }
     try {
+        const media = [];
+        for (const file of files) {
+            const fd = new FormData();
+            fd.append("file", file);
+            const res = await fetch(API + "/files", { method: "POST", headers: authHeaders(), body: fd });
+            const body = await res.json();
+            if (body.code !== 200) throw new Error(body.message || "上传失败");
+            media.push(body.data);
+        }
         await request("/comments", {
             method: "POST",
             headers: headers(),
-            body: JSON.stringify({ noteId: detailNoteId, content })
+            body: JSON.stringify({ noteId: detailNoteId, content, media })
         });
         $("#detail-comment-input").value = "";
+        $("#detail-comment-files").value = "";
         await loadComments(detailNoteId);
     } catch (e) {
         notify(e.message);
