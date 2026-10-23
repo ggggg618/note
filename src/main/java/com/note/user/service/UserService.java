@@ -72,6 +72,14 @@ public class UserService {
         return toUserResponse(user);
     }
 
+    public UserResponse getUserProfile(Long userId) {
+        User user = userMapper.selectById(userId);
+        if (user == null) {
+            throw new BusinessException("用户不存在");
+        }
+        return toUserResponse(user);
+    }
+
     public UserResponse updateProfile(UpdateProfileRequest request) {
         User user = requireCurrentUser();
         user.setNickname(request.getNickname());

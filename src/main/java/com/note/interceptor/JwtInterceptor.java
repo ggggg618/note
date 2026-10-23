@@ -67,6 +67,7 @@ public class JwtInterceptor implements HandlerInterceptor {
         return "/api/notes".equals(uri)
                 || "/api/notes/rank".equals(uri)
                 || uri.matches("/api/notes/\\d+")
+                || uri.matches("/api/users/\\d+")
                 || uri.matches("/api/users/\\d+/notes")
                 || uri.matches("/api/comments/\\d+");
     }

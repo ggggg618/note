@@ -92,6 +92,7 @@ document.querySelectorAll("[data-view]").forEach((btn) => {
 
 let registerMode = false;
 let currentConversationId = null;
+let detailNoteId = null;
 $("#toggle-auth").addEventListener("click", () => {
     registerMode = !registerMode;
     renderAuthMode();
@@ -151,6 +152,8 @@ function noteCard(note) {
     const el = document.createElement("div");
     el.className = "note-card";
     el.innerHTML = `<h3>${escapeHtml(note.title)}</h3><p>${escapeHtml(note.bookName || "")}</p><p>${escapeHtml((note.content || "").slice(0, 80))}</p>`;
+    el.style.cursor = "pointer";
+    el.addEventListener("click", () => openNoteDetail(note.id));
 
     const actions = document.createElement("div");
     actions.className = "note-actions";
@@ -188,8 +191,118 @@ function actionButton(text, onClick) {
     const btn = document.createElement("button");
     btn.type = "button";
     btn.textContent = text;
+    btn.addEventListener("click", (e) => e.stopPropagation());
     btn.addEventListener("click", onClick);
     return btn;
+}
+
+function showDetail() {
+    document.querySelectorAll(".view").forEach((v) => v.classList.add("hidden"));
+    $("#detail-view").classList.remove("hidden");
+}
+
+function openNoteDetail(id) {
+    detailNoteId = id;
+    showDetail();
+    loadNoteDetail();
+}
+
+async function loadNoteDetail() {
+    try {
+        const note = await request(`/notes/${detailNoteId}`);
+        const author = await request(`/users/${note.userId}`);
+        $("#detail-title").textContent = note.title;
+        $("#detail-meta").textContent = `${author.nickname || author.username} · ${formatDate(note.createdAt)} · 点赞 ${note.likeCount}`;
+        $("#detail-book").textContent = "书名：" + (note.bookName || "");
+        $("#detail-content").textContent = note.content || "";
+
+        const imgWrap = $("#detail-images");
+        imgWrap.innerHTML = "";
+        (note.images || []).forEach((src) => {
+            const img = document.createElement("img");
+            img.src = src;
+            img.alt = "配图";
+            imgWrap.appendChild(img);
+        });
+
+        $("#detail-ai").textContent = note.aiResult ? "AI 总结：" + note.aiResult : "暂无 AI 总结";
+        renderDetailActions(note);
+        await loadComments(note.id);
+    } catch (e) {
+        notify(e.message);
+        showView("public");
+    }
+}
+
+function renderDetailActions(note) {
+    const actions = $("#detail-actions");
+    actions.innerHTML = "";
+    actions.appendChild(actionButton("点赞", async () => {
+        try {
+            await request(`/likes/${note.id}`, { method: "POST" });
+            notify("点赞成功");
+            loadNoteDetail();
+        } catch (e) { notify(e.message); }
+    }));
+    actions.appendChild(actionButton("关注作者", async () => {
+        try {
+            await request(`/follows/${note.userId}`, { method: "POST" });
+            notify("关注成功");
+        } catch (e) { notify(e.message); }
+    }));
+    actions.appendChild(actionButton("AI 总结", async () => {
+        try {
+            const data = await request("/ai/summary", { method: "POST", headers: headers(), body: JSON.stringify({ noteId: note.id }) });
+            notify(data.content);
+        } catch (e) { notify(e.message); }
+    }));
+}
+
+async function loadComments(noteId) {
+    const container = $("#detail-comments");
+    container.innerHTML = "";
+    const comments = await request(`/comments/${noteId}`);
+    if (!Array.isArray(comments) || comments.length === 0) {
+        container.textContent = "暂无评论";
+        return;
+    }
+    const ids = new Set();
+    comments.forEach((c) => {
+        ids.add(c.userId);
+        (c.children || []).forEach((child) => ids.add(child.userId));
+    });
+    const authors = {};
+    await Promise.all([...ids].map(async (id) => {
+        try { authors[id] = await request(`/users/${id}`); } catch (e) {}
+    }));
+    comments.forEach((c) => renderComment(c, authors, container));
+}
+
+function renderComment(comment, authors, parent) {
+    const div = document.createElement("div");
+    div.className = "comment";
+    const author = authors[comment.userId] || {};
+    const head = document.createElement("div");
+    head.className = "comment-head";
+    head.textContent = (author.nickname || author.username || ("用户" + comment.userId)) + " · " + formatDate(comment.createdAt);
+    const body = document.createElement("div");
+    body.className = "comment-body";
+    body.textContent = comment.content || "";
+    div.append(head, body);
+    parent.appendChild(div);
+    (comment.children || []).forEach((child) => {
+        const wrap = document.createElement("div");
+        wrap.className = "comment-children";
+        renderComment(child, authors, wrap);
+        div.appendChild(wrap);
+    });
+}
+
+function formatDate(value) {
+    if (!value) return "";
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return String(value);
+    return d.toLocaleString("zh-CN", { hour12: false });
 }
 
 async function loadMyNotes() {
@@ -337,6 +450,26 @@ $("#chat-send").addEventListener("click", async () => {
         });
         $("#chat-input").value = "";
         await loadMessages();
+    } catch (e) {
+        notify(e.message);
+    }
+});
+
+$("#back-detail").addEventListener("click", () => showView("public"));
+$("#detail-comment-send").addEventListener("click", async () => {
+    const content = $("#detail-comment-input").value.trim();
+    if (!content) {
+        notify("请输入评论内容");
+        return;
+    }
+    try {
+        await request("/comments", {
+            method: "POST",
+            headers: headers(),
+            body: JSON.stringify({ noteId: detailNoteId, content })
+        });
+        $("#detail-comment-input").value = "";
+        await loadComments(detailNoteId);
     } catch (e) {
         notify(e.message);
     }

@@ -10,6 +10,7 @@ import com.note.user.service.UserService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -36,6 +37,11 @@ public class AuthController {
     @GetMapping("/api/user/me")
     public Result<UserResponse> getProfile() {
         return Result.ok(userService.getProfile());
+    }
+
+    @GetMapping("/api/users/{id}")
+    public Result<UserResponse> getUser(@PathVariable Long id) {
+        return Result.ok(userService.getUserProfile(id));
     }
 
     @PutMapping("/api/user/me")
