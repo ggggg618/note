@@ -29,4 +29,10 @@ public class NoteResponse {
     private List<String> images;
 
     private String aiResult;
+
+    private String aiSummary;
+
+    private String aiRecommend;
+
+    private String aiScore;
 }

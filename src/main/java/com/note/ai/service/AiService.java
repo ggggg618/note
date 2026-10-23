@@ -41,21 +41,21 @@ public class AiService {
     public AiResponse generateSummary(Long userId, Long noteId) {
         Note note = requireOwnedNote(userId, noteId);
         String systemPrompt = "你是一名专业的读书笔记助手。请根据用户提供的笔记内容，用简洁清晰的中文生成一段内容摘要。";
-        String content = callAi(userId, "SUMMARY", systemPrompt, note.getContent());
+        String content = callAi(userId, "SUMMARY", systemPrompt, note.getContent(), note.getVisibility() != null && note.getVisibility() == 0);
         return new AiResponse("SUMMARY", content);
     }
 
     public AiResponse generateRecommend(Long userId, Long noteId) {
         Note note = requireOwnedNote(userId, noteId);
         String systemPrompt = "你是一名专业的阅读推荐助手。请根据用户提供的笔记内容，结合主题和阅读深度推荐相关书籍、延伸主题或学习方法，并用中文说明推荐理由。";
-        String content = callAi(userId, "RECOMMEND", systemPrompt, note.getContent());
+        String content = callAi(userId, "RECOMMEND", systemPrompt, note.getContent(), note.getVisibility() != null && note.getVisibility() == 0);
         return new AiResponse("RECOMMEND", content);
     }
 
     public AiResponse generateScore(Long userId, Long noteId) {
         Note note = requireOwnedNote(userId, noteId);
         String systemPrompt = "你是一名笔记质量评审助手。请从完整性、相关性、思考深度三个维度评估用户笔记，给出 0-100 分，并用简短的中文理由说明评分依据。";
-        String content = callAi(userId, "SCORE", systemPrompt, note.getContent());
+        String content = callAi(userId, "SCORE", systemPrompt, note.getContent(), note.getVisibility() != null && note.getVisibility() == 0);
         return new AiResponse("SCORE", content);
     }
 
@@ -141,7 +141,7 @@ public class AiService {
                 + "平台实际功能路径如下：发布公开笔记请点击顶部“我的笔记”，再点“新建笔记”，填写后选择“公开”并保存，随后等待管理员审核；"
                 + "查看公开笔记在顶部“公开笔记”；关注动态在“关注动态”；AI 总结在笔记详情或卡片上；AI 客服在“AI 客服”。请按这些真实入口回答，不要编造“创作中心、发布笔记”等不存在的入口。";
 
-        String reply = callAi(userId, "CHAT", systemPrompt, userPrompt);
+        String reply = callAi(userId, "CHAT", systemPrompt, userPrompt, false);
         ConversationMessage assistantMessage = insertMessage(conversationId, "assistant", reply, LocalDateTime.now());
         return new ChatMessageResponse(assistantMessage.getId(), "assistant", reply, assistantMessage.getCreatedAt());
     }
@@ -214,18 +214,19 @@ public class AiService {
         return message;
     }
 
-    private String callAi(Long userId, String type, String systemPrompt, String userPrompt) {
+    private String callAi(Long userId, String type, String systemPrompt, String userPrompt, boolean sensitive) {
         String prompt = systemPrompt + "\n" + userPrompt;
+        String logPrompt = sensitive ? "[私有笔记内容已省略] " + systemPrompt : prompt;
         try {
             String response = aiClient.chat(systemPrompt, userPrompt);
-            recordAiLog(userId, type, prompt, response, 1);
+            recordAiLog(userId, type, logPrompt, response, 1);
             return response;
         } catch (BusinessException ex) {
-            recordAiLog(userId, type, prompt, ex.getMessage(), 0);
+            recordAiLog(userId, type, logPrompt, ex.getMessage(), 0);
             log.error("AI 调用失败: userId={}, type={}, message={}", userId, type, ex.getMessage());
             throw ex;
         } catch (Exception ex) {
-            recordAiLog(userId, type, prompt, ex.getMessage(), 0);
+            recordAiLog(userId, type, logPrompt, ex.getMessage(), 0);
             log.error("AI 调用异常: userId={}, type={}", userId, type, ex);
             throw new BusinessException("AI 调用失败");
         }

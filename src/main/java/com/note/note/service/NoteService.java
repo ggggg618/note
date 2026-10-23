@@ -254,14 +254,19 @@ public class NoteService {
 
     private NoteResponse buildResponse(Note note) {
         List<String> images = listImages(note.getId());
-        String aiResult = null;
-        NoteAi noteAi = noteAiMapper.selectOne(new LambdaQueryWrapper<NoteAi>()
-                .eq(NoteAi::getNoteId, note.getId())
-                .eq(NoteAi::getType, "SUMMARY"));
-        if (noteAi != null) {
-            aiResult = noteAi.getContent();
-        }
-        return buildResponse(note, images, aiResult);
+        List<NoteAi> aiResults = noteAiMapper.selectList(new LambdaQueryWrapper<NoteAi>()
+                .eq(NoteAi::getNoteId, note.getId()));
+        String summary = aiResults.stream().filter(a -> "SUMMARY".equals(a.getType()))
+                .map(NoteAi::getContent).findFirst().orElse(null);
+        String recommend = aiResults.stream().filter(a -> "RECOMMEND".equals(a.getType()))
+                .map(NoteAi::getContent).findFirst().orElse(null);
+        String score = aiResults.stream().filter(a -> "SCORE".equals(a.getType()))
+                .map(NoteAi::getContent).findFirst().orElse(null);
+        NoteResponse response = buildResponse(note, images, summary);
+        response.setAiSummary(summary);
+        response.setAiRecommend(recommend);
+        response.setAiScore(score);
+        return response;
     }
 
     private NoteResponse buildResponse(Note note, List<String> images, String aiResult) {

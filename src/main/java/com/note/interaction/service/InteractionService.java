@@ -3,6 +3,7 @@ package com.note.interaction.service;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.note.common.BusinessException;
@@ -220,8 +221,18 @@ public class InteractionService {
 
     public PageResult<AuthorResponse> hotAuthors(long page, long size) {
         PageUtil.check(page, size);
-        Map<Long, Long> followerCounts = followMapper.selectList(null).stream()
-                .collect(Collectors.groupingBy(Follow::getFolloweeId, Collectors.counting()));
+        List<Map<String, Object>> rows = followMapper.selectMaps(new QueryWrapper<Follow>()
+                .select("followee_id", "COUNT(*) AS cnt")
+                .groupBy("followee_id")
+                .orderByDesc("cnt"));
+        Map<Long, Long> followerCounts = new LinkedHashMap<>();
+        for (Map<String, Object> row : rows) {
+            Object idObj = row.get("followee_id");
+            Object cntObj = row.get("cnt");
+            if (idObj != null) {
+                followerCounts.put(((Number) idObj).longValue(), cntObj == null ? 0L : ((Number) cntObj).longValue());
+            }
+        }
 
         List<Map.Entry<Long, Long>> sorted = followerCounts.entrySet().stream()
                 .sorted(Map.Entry.<Long, Long>comparingByValue().reversed())

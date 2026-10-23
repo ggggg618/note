@@ -3,6 +3,7 @@ package com.note.user.controller;
 import com.note.common.Result;
 import com.note.user.dto.LoginRequest;
 import com.note.user.dto.LoginResponse;
+import com.note.user.dto.ChangePasswordRequest;
 import com.note.user.dto.RegisterRequest;
 import com.note.user.dto.UpdateProfileRequest;
 import com.note.user.dto.UserPublicResponse;
@@ -53,5 +54,11 @@ public class AuthController {
     @PostMapping("/api/user/avatar")
     public Result<String> uploadAvatar(@RequestParam("file") MultipartFile file) {
         return Result.ok(userService.uploadAvatar(file));
+    }
+
+    @PutMapping("/api/user/password")
+    public Result<Void> changePassword(@Valid @RequestBody ChangePasswordRequest request) {
+        userService.changePassword(request);
+        return Result.ok();
     }
 }

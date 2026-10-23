@@ -193,13 +193,24 @@ $("#auth-form").addEventListener("submit", async (e) => {
     const body = await res.json();
     if (body.code !== 200) return notify(body.message);
     if (registerMode) {
-        notify("注册成功，请登录");
+        const loginRes = await fetch(API + "/auth/login", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ username: payload.username, password: payload.password })
+        });
+        const loginBody = await loginRes.json();
         registerMode = false;
         renderAuthMode();
-        $("#username").value = "";
-        $("#password").value = "";
-        $("#nickname").value = "";
-        showAuth();
+        if (loginBody.code === 200) {
+            localStorage.setItem("token", loginBody.data.token);
+            localStorage.setItem("role", loginBody.data.user.role);
+            currentUserId = loginBody.data.user.id;
+            afterAuth();
+            showView("notes");
+        } else {
+            notify("注册成功，请登录");
+            showAuth();
+        }
         return;
     }
     localStorage.setItem("token", body.data.token);
@@ -372,7 +383,11 @@ async function loadNoteDetail() {
             imgWrap.appendChild(img);
         });
 
-        $("#detail-ai").textContent = note.aiResult ? "AI 总结：" + note.aiResult : "暂无 AI 总结";
+        const aiParts = [];
+        if (note.aiSummary) aiParts.push(`<p><b>AI 总结：</b>${escapeHtml(note.aiSummary)}</p>`);
+        if (note.aiRecommend) aiParts.push(`<p><b>AI 推荐：</b>${escapeHtml(note.aiRecommend)}</p>`);
+        if (note.aiScore) aiParts.push(`<p><b>AI 评分：</b>${escapeHtml(note.aiScore)}</p>`);
+        $("#detail-ai").innerHTML = aiParts.length ? aiParts.join("") : "暂无 AI 结果";
         document.querySelectorAll("#detail-view h3, #detail-comments, #detail-view .comment-form")
             .forEach((el) => el.classList.toggle("hidden", isPrivate));
         renderDetailActions(note);
@@ -912,6 +927,22 @@ $("#profile-avatar-file").addEventListener("change", async () => {
         if (body.code !== 200) throw new Error(body.message || "上传失败");
         notify("头像已更新");
         loadProfile();
+    } catch (e) { notify(e.message); }
+});
+
+$("#profile-password-save").addEventListener("click", async () => {
+    try {
+        await request("/user/password", {
+            method: "PUT",
+            headers: headers(),
+            body: JSON.stringify({
+                oldPassword: $("#profile-old-password").value,
+                newPassword: $("#profile-new-password").value
+            })
+        });
+        notify("密码已修改");
+        $("#profile-old-password").value = "";
+        $("#profile-new-password").value = "";
     } catch (e) { notify(e.message); }
 });
 

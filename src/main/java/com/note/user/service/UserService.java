@@ -8,6 +8,7 @@ import com.note.user.User;
 import com.note.user.UserMapper;
 import com.note.user.dto.LoginRequest;
 import com.note.user.dto.LoginResponse;
+import com.note.user.dto.ChangePasswordRequest;
 import com.note.user.dto.RegisterRequest;
 import com.note.user.dto.UpdateProfileRequest;
 import com.note.user.dto.UserPublicResponse;
@@ -123,6 +124,16 @@ public class UserService {
         userMapper.updateById(user);
         log.info("头像上传成功: userId={}, url={}", user.getId(), url);
         return url;
+    }
+
+    public void changePassword(ChangePasswordRequest request) {
+        User user = requireCurrentUser();
+        if (!passwordEncoder.matches(request.getOldPassword(), user.getPassword())) {
+            throw new BusinessException("原密码错误");
+        }
+        user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+        userMapper.updateById(user);
+        log.info("用户修改密码: userId={}", user.getId());
     }
 
     private User requireCurrentUser() {
