@@ -70,6 +70,44 @@ input, textarea, select {
     border: 1px solid var(--line);
     border-radius: 6px;
 }
+
+.toast {
+    position: fixed;
+    left: 50%;
+    bottom: 28px;
+    transform: translateX(-50%);
+    max-width: min(90vw, 480px);
+    background: #1f2937;
+    color: #fff;
+    padding: 10px 14px;
+    border-radius: 8px;
+    font-size: 14px;
+    z-index: 50;
+}
+
+.dialog-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.35);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 60;
+}
+
+.dialog-box {
+    width: min(90vw, 360px);
+    background: #fff;
+    border-radius: 8px;
+    padding: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.dialog-label { font-size: 14px; }
+
+.dialog-actions { display: flex; justify-content: flex-end; gap: 8px; }
 .chat-layout {
     display: grid;
     grid-template-columns: 240px 1fr;

@@ -12,6 +12,51 @@ const authHeaders = () => {
     return h;
 };
 
+function notify(message) {
+    const toast = document.createElement("div");
+    toast.className = "toast";
+    toast.textContent = message;
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 3500);
+}
+
+function askText(message) {
+    return new Promise((resolve) => {
+        const overlay = document.createElement("div");
+        overlay.className = "dialog-overlay";
+        const box = document.createElement("div");
+        box.className = "dialog-box";
+        const label = document.createElement("div");
+        label.className = "dialog-label";
+        label.textContent = message;
+        const input = document.createElement("input");
+        input.type = "text";
+        const ok = document.createElement("button");
+        ok.type = "button";
+        ok.textContent = "确定";
+        const cancel = document.createElement("button");
+        cancel.type = "button";
+        cancel.textContent = "取消";
+        const row = document.createElement("div");
+        row.className = "dialog-actions";
+        row.append(cancel, ok);
+        box.append(label, input, row);
+        overlay.appendChild(box);
+        document.body.appendChild(overlay);
+
+        const close = (value) => {
+            overlay.remove();
+            resolve(value);
+        };
+        ok.addEventListener("click", () => close(input.value.trim()));
+        cancel.addEventListener("click", () => close(null));
+        input.addEventListener("keydown", (e) => {
+            if (e.key === "Enter") close(input.value.trim());
+        });
+        input.focus();
+    });
+}
+
 async function request(path, options = {}) {
     options = options || {};
     options.headers = { ...authHeaders(), ...(options.headers || {}) };
@@ -65,9 +110,9 @@ $("#auth-form").addEventListener("submit", async (e) => {
     const path = registerMode ? "/auth/register" : "/auth/login";
     const res = await fetch(API + path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
     const body = await res.json();
-    if (body.code !== 200) return alert(body.message);
+    if (body.code !== 200) return notify(body.message);
     if (registerMode) {
-        alert("注册成功，请登录");
+        notify("注册成功，请登录");
         registerMode = false;
         renderAuthMode();
         $("#username").value = "";
@@ -112,28 +157,28 @@ function noteCard(note) {
     actions.appendChild(actionButton("点赞", async () => {
         try {
             await request(`/likes/${note.id}`, { method: "POST" });
-            alert("点赞成功");
-        } catch (e) { alert(e.message); }
+            notify("点赞成功");
+        } catch (e) { notify(e.message); }
     }));
     actions.appendChild(actionButton("评论", async () => {
-        const content = prompt("输入评论内容");
+        const content = await askText("输入评论内容");
         if (!content) return;
         try {
             await request("/comments", { method: "POST", headers: headers(), body: JSON.stringify({ noteId: note.id, content }) });
-            alert("评论成功");
-        } catch (e) { alert(e.message); }
+            notify("评论成功");
+        } catch (e) { notify(e.message); }
     }));
     actions.appendChild(actionButton("关注作者", async () => {
         try {
             await request(`/follows/${note.userId}`, { method: "POST" });
-            alert("关注成功");
-        } catch (e) { alert(e.message); }
+            notify("关注成功");
+        } catch (e) { notify(e.message); }
     }));
     actions.appendChild(actionButton("AI 总结", async () => {
         try {
             const data = await request("/ai/summary", { method: "POST", headers: headers(), body: JSON.stringify({ noteId: note.id }) });
-            alert(data.content);
-        } catch (e) { alert(e.message); }
+            notify(data.content);
+        } catch (e) { notify(e.message); }
     }));
     el.appendChild(actions);
     return el;
@@ -273,13 +318,13 @@ $("#new-chat").addEventListener("click", async () => {
         $("#chat-messages").innerHTML = "";
         await loadChat();
     } catch (e) {
-        alert(e.message);
+        notify(e.message);
     }
 });
 
 $("#chat-send").addEventListener("click", async () => {
     if (!currentConversationId) {
-        alert("请先选择会话");
+        notify("请先选择会话");
         return;
     }
     const content = $("#chat-input").value.trim();
@@ -293,7 +338,7 @@ $("#chat-send").addEventListener("click", async () => {
         $("#chat-input").value = "";
         await loadMessages();
     } catch (e) {
-        alert(e.message);
+        notify(e.message);
     }
 });
 
