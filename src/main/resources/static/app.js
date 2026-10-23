@@ -107,8 +107,15 @@ async function loadLikedNotes() {
         return;
     }
     try {
-        const data = await request("/likes/me?page=1&size=100");
-        likedNoteIds = new Set((data.records || []).map((n) => n.id));
+        const ids = [];
+        let page = 1;
+        while (true) {
+            const data = await request(`/likes/me?page=${page}&size=100`);
+            ids.push(...(data.records || []).map((n) => n.id));
+            if (!data.records || data.records.length < 100) break;
+            page++;
+        }
+        likedNoteIds = new Set(ids);
     } catch (e) {
         likedNoteIds = new Set();
     }
@@ -323,7 +330,8 @@ async function runAiSummary(noteId, reloadDetail) {
 async function runAiAction(path, noteId, type) {
     try {
         const data = await request(path, { method: "POST", headers: headers(), body: JSON.stringify({ noteId }) });
-        notify(data.content);
+        await request("/ai/result/save", { method: "POST", headers: headers(), body: JSON.stringify({ noteId, type, content: data.content }) });
+        notify(`${type === "RECOMMEND" ? "AI 推荐" : "AI 评分"}已保存`);
     } catch (e) { notify(e.message); }
 }
 

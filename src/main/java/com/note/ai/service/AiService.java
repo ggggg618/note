@@ -63,7 +63,8 @@ public class AiService {
     public AiResponse saveResult(Long userId, SaveAiRequest request) {
         requireOwnedNote(userId, request.getNoteId());
         NoteAi existing = noteAiMapper.selectOne(new LambdaQueryWrapper<NoteAi>()
-                .eq(NoteAi::getNoteId, request.getNoteId()));
+                .eq(NoteAi::getNoteId, request.getNoteId())
+                .eq(NoteAi::getType, request.getType()));
 
         LocalDateTime now = LocalDateTime.now();
         if (existing == null) {
@@ -75,7 +76,6 @@ public class AiService {
             existing.setUpdatedAt(now);
             noteAiMapper.insert(existing);
         } else {
-            existing.setType(request.getType());
             existing.setContent(request.getContent());
             existing.setUpdatedAt(now);
             noteAiMapper.updateById(existing);
@@ -87,7 +87,8 @@ public class AiService {
     public NoteAi getResult(Long userId, Long noteId) {
         requireOwnedNote(userId, noteId);
         return noteAiMapper.selectOne(new LambdaQueryWrapper<NoteAi>()
-                .eq(NoteAi::getNoteId, noteId));
+                .eq(NoteAi::getNoteId, noteId)
+                .eq(NoteAi::getType, "SUMMARY"));
     }
 
     public ConversationResponse createConversation(Long userId) {
@@ -129,7 +130,7 @@ public class AiService {
             context.append("暂无历史消息\n");
         } else {
             for (ConversationMessage message : recentMessages) {
-                context.append(message.getRole()).append("：").append(message.getContent()).append("\n");
+                context.append(message.getRole()).append("：").append(truncate(message.getContent(), 500)).append("\n");
             }
         }
 
@@ -143,6 +144,16 @@ public class AiService {
         String reply = callAi(userId, "CHAT", systemPrompt, userPrompt);
         ConversationMessage assistantMessage = insertMessage(conversationId, "assistant", reply, LocalDateTime.now());
         return new ChatMessageResponse(assistantMessage.getId(), "assistant", reply, assistantMessage.getCreatedAt());
+    }
+
+    private String truncate(String value, int maxLength) {
+        if (value == null) {
+            return "";
+        }
+        if (value.length() <= maxLength) {
+            return value;
+        }
+        return value.substring(0, maxLength);
     }
 
     public List<ChatMessageResponse> listMessages(Long userId, Long conversationId) {

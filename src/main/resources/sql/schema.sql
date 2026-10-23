@@ -130,13 +130,13 @@ CREATE TABLE `ai_log` (
 
 CREATE TABLE `note_ai` (
     `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT 'AI辅助结果主键',
-    `note_id` BIGINT NOT NULL COMMENT '关联笔记ID，一篇笔记仅保留一种AI辅助结果',
+    `note_id` BIGINT NOT NULL COMMENT '关联笔记ID',
     `type` VARCHAR(30) NOT NULL COMMENT 'AI辅助结果类型',
     `content` TEXT NOT NULL COMMENT 'AI生成内容',
     `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     PRIMARY KEY (`id`),
-    UNIQUE KEY `uk_note_ai_note_id` (`note_id`)
+    UNIQUE KEY `uk_note_ai_note_type` (`note_id`, `type`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='笔记AI辅助结果表';
 
 CREATE TABLE `conversation` (

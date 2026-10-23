@@ -224,7 +224,8 @@ public class NoteService {
         List<String> images = listImages(note.getId());
         String aiResult = null;
         NoteAi noteAi = noteAiMapper.selectOne(new LambdaQueryWrapper<NoteAi>()
-                .eq(NoteAi::getNoteId, note.getId()));
+                .eq(NoteAi::getNoteId, note.getId())
+                .eq(NoteAi::getType, "SUMMARY"));
         if (noteAi != null) {
             aiResult = noteAi.getContent();
         }
@@ -290,7 +291,8 @@ public class NoteService {
             return Collections.emptyMap();
         }
         return noteAiMapper.selectList(new LambdaQueryWrapper<NoteAi>()
-                        .in(NoteAi::getNoteId, noteIds))
+                        .in(NoteAi::getNoteId, noteIds)
+                        .eq(NoteAi::getType, "SUMMARY"))
                 .stream()
                 .collect(Collectors.toMap(NoteAi::getNoteId, NoteAi::getContent));
     }
