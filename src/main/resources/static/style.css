@@ -48,6 +48,7 @@ button.primary, button[type="submit"] { background: var(--accent); color: #fff; 
 }
 .note-card h3 { margin: 0 0 8px; }
 .note-card p { color: var(--muted); }
+.note-meta { margin-top: 8px; font-size: 13px; color: var(--accent-2); }
 .note-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
 .note-actions button { padding: 6px 10px; }
 .note-detail {

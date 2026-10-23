@@ -168,7 +168,8 @@ $("#logout").addEventListener("click", logout);
 function noteCard(note) {
     const el = document.createElement("div");
     el.className = "note-card";
-    el.innerHTML = `<h3>${escapeHtml(note.title)}</h3><p>${escapeHtml(note.bookName || "")}</p><p>${escapeHtml((note.content || "").slice(0, 80))}</p>`;
+    const likeCount = note.likeCount == null ? 0 : note.likeCount;
+    el.innerHTML = `<h3>${escapeHtml(note.title)}</h3><p>${escapeHtml(note.bookName || "")}</p><p>${escapeHtml((note.content || "").slice(0, 80))}</p><div class="note-meta">赞 ${likeCount}</div>`;
     el.style.cursor = "pointer";
     el.addEventListener("click", () => openNoteDetail(note.id));
 
