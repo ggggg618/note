@@ -7,6 +7,13 @@ spring:
     multipart:
       max-file-size: 10MB
       max-request-size: 20MB
+  ai:
+    openai:
+      api-key: ${AI_API_KEY:sk-placeholder}
+      base-url: ${AI_BASE_URL:https://api.openai.com}
+      chat:
+        options:
+          model: ${AI_MODEL:gpt-4o-mini}
 
 mybatis-plus:
   configuration:
@@ -24,8 +31,3 @@ jwt:
 
 file:
   upload-dir: ${UPLOAD_DIR:uploads}
-
-ai:
-  base-url: ${AI_BASE_URL:https://api.openai.com/v1}
-  api-key: ${AI_API_KEY:}
-  model: ${AI_MODEL:gpt-4o-mini}

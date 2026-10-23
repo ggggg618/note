@@ -31,6 +31,8 @@ function showView(name) {
     $("#" + name + "-view").classList.remove("hidden");
     if (name === "notes") loadMyNotes();
     if (name === "public") loadPublicNotes();
+    if (name === "feeds") loadFeeds();
+    if (name === "chat") loadChat();
     if (name === "admin") loadAdmin();
 }
 
@@ -44,6 +46,7 @@ document.querySelectorAll("[data-view]").forEach((btn) => {
 });
 
 let registerMode = false;
+let currentConversationId = null;
 $("#toggle-auth").addEventListener("click", () => {
     registerMode = !registerMode;
     renderAuthMode();
@@ -156,6 +159,51 @@ async function loadPublicNotes() {
     (data.records || []).forEach((n) => $("#public-list").appendChild(noteCard(n)));
 }
 
+async function loadFeeds() {
+    const data = await request("/feeds?page=1&size=50");
+    $("#feeds-list").innerHTML = "";
+    (data.records || []).forEach((n) => $("#feeds-list").appendChild(noteCard(n)));
+}
+
+async function loadChat() {
+    const data = await request("/ai/conversations");
+    const conversations = Array.isArray(data) ? data : (data.records || []);
+    $("#chat-list").innerHTML = "";
+    conversations.forEach((conversation) => {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "conversation-item";
+        btn.textContent = conversation.title || "新会话";
+        btn.addEventListener("click", () => {
+            currentConversationId = conversation.id;
+            document.querySelectorAll(".conversation-item").forEach((b) => b.classList.remove("active"));
+            btn.classList.add("active");
+            loadMessages();
+        });
+        if (conversation.id === currentConversationId) btn.classList.add("active");
+        $("#chat-list").appendChild(btn);
+    });
+}
+
+async function loadMessages() {
+    if (!currentConversationId) {
+        $("#chat-messages").innerHTML = "";
+        return;
+    }
+    const data = await request(`/ai/conversations/${currentConversationId}/messages`);
+    const messages = Array.isArray(data) ? data : (data.records || []);
+    $("#chat-messages").innerHTML = "";
+    messages.forEach((message) => {
+        const role = String(message.role || "assistant").toLowerCase();
+        const content = message.content || "";
+        const item = document.createElement("div");
+        item.className = `chat-message ${role === "user" ? "user" : "assistant"}`;
+        item.innerHTML = `<div class="chat-role">${escapeHtml(message.role || "assistant")}</div><div class="chat-content">${escapeHtml(content)}</div>`;
+        $("#chat-messages").appendChild(item);
+    });
+    $("#chat-messages").scrollTop = $("#chat-messages").scrollHeight;
+}
+
 $("#new-note").addEventListener("click", () => {
     $("#note-form").reset();
     $("#editor-title").textContent = "新建笔记";
@@ -217,6 +265,37 @@ async function loadAdmin() {
         $("#admin-notes").appendChild(row);
     });
 }
+
+$("#new-chat").addEventListener("click", async () => {
+    try {
+        await request("/ai/conversations", { method: "POST" });
+        currentConversationId = null;
+        $("#chat-messages").innerHTML = "";
+        await loadChat();
+    } catch (e) {
+        alert(e.message);
+    }
+});
+
+$("#chat-send").addEventListener("click", async () => {
+    if (!currentConversationId) {
+        alert("请先选择会话");
+        return;
+    }
+    const content = $("#chat-input").value.trim();
+    if (!content) return;
+    try {
+        await request(`/ai/conversations/${currentConversationId}/messages`, {
+            method: "POST",
+            headers: headers(),
+            body: JSON.stringify({ content })
+        });
+        $("#chat-input").value = "";
+        await loadMessages();
+    } catch (e) {
+        alert(e.message);
+    }
+});
 
 function escapeHtml(value) {
     return String(value || "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));

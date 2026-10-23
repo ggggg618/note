@@ -53,6 +53,7 @@ Authorization: Bearer <token>
 | GET | `/api/likes/me` | 我点赞过的笔记（分页） | 登录 |
 | POST | `/api/follows/{userId}` | 关注 | 登录 |
 | DELETE | `/api/follows/{userId}` | 取消关注 | 登录 |
+| GET | `/api/feeds` | 关注的人的公开笔记流（分页） | 登录 |
 | GET | `/api/follows/{userId}/followers` | 粉丝列表（分页） | 登录 |
 | GET | `/api/follows/rank` | 热门作者排名（分页） | 登录 |
 | POST | `/api/comments` | 发表评论 | 登录 |

@@ -106,6 +106,35 @@ public class InteractionService {
         return new PageResult<>(likePage.getTotal(), likePage.getCurrent(), likePage.getSize(), records);
     }
 
+    public PageResult<NoteResponse> feed(Long userId, long page, long size) {
+        requireUser(userId);
+        PageUtil.check(page, size);
+
+        List<Long> followeeIds = followMapper.selectList(new LambdaQueryWrapper<Follow>()
+                        .eq(Follow::getFollowerId, userId))
+                .stream()
+                .map(Follow::getFolloweeId)
+                .collect(Collectors.toList());
+        if (followeeIds.isEmpty()) {
+            return new PageResult<>(0, page, size, List.of());
+        }
+
+        Page<Note> notePage = noteMapper.selectPage(new Page<>(page, size),
+                new LambdaQueryWrapper<Note>()
+                        .eq(Note::getVisibility, 1)
+                        .eq(Note::getAuditStatus, 1)
+                        .in(Note::getUserId, followeeIds)
+                        .orderByDesc(Note::getCreatedAt)
+                        .orderByDesc(Note::getId));
+
+        List<NoteResponse> records = notePage.getRecords().stream()
+                .map(note -> new NoteResponse(note.getId(), note.getTitle(), note.getBookName(),
+                        likeCount(note)))
+                .collect(Collectors.toList());
+
+        return new PageResult<>(notePage.getTotal(), notePage.getCurrent(), notePage.getSize(), records);
+    }
+
     public void follow(Long userId, Long targetId) {
         requireUser(userId);
         if (userId.equals(targetId)) {

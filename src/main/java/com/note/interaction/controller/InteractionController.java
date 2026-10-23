@@ -46,6 +46,13 @@ public class InteractionController {
         return Result.ok(interactionService.listMyLikes(requireUserId(), page, size));
     }
 
+    @GetMapping("/api/feeds")
+    public Result<PageResult<NoteResponse>> feed(
+            @RequestParam(defaultValue = "1") long page,
+            @RequestParam(defaultValue = "10") long size) {
+        return Result.ok(interactionService.feed(requireUserId(), page, size));
+    }
+
     @PostMapping("/api/follows/{userId}")
     public Result<Void> follow(@PathVariable Long userId) {
         interactionService.follow(requireUserId(), userId);
