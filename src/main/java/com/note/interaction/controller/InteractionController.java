@@ -81,6 +81,11 @@ public class InteractionController {
         return Result.ok(interactionService.hotAuthors(page, size));
     }
 
+    @GetMapping("/api/follows/me")
+    public Result<List<Long>> listFollowingIds() {
+        return Result.ok(interactionService.listFollowingIds(requireUserId()));
+    }
+
     @GetMapping("/api/users/{userId}/stats")
     public Result<AuthorStatsResponse> authorStats(@PathVariable Long userId) {
         return Result.ok(interactionService.authorStats(userId));

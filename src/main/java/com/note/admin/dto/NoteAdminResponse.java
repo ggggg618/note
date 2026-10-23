@@ -19,6 +19,8 @@ public class NoteAdminResponse {
 
     private String bookName;
 
+    private String content;
+
     private Integer visibility;
 
     private Integer auditStatus;

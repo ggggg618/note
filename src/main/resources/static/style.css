@@ -180,6 +180,7 @@ input, textarea, select {
     border-radius: 6px;
 }
 .row-actions { display: flex; gap: 6px; }
+.admin-note-content { grid-column: 1 / -1; white-space: pre-wrap; color: var(--text); }
 
 .toast {
     position: fixed;

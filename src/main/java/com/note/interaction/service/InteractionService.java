@@ -190,6 +190,15 @@ public class InteractionService {
         log.info("取消关注: follower={}, followee={}", userId, targetId);
     }
 
+    public List<Long> listFollowingIds(Long userId) {
+        requireUser(userId);
+        return followMapper.selectList(new LambdaQueryWrapper<Follow>()
+                        .eq(Follow::getFollowerId, userId))
+                .stream()
+                .map(Follow::getFolloweeId)
+                .collect(Collectors.toList());
+    }
+
     public PageResult<AuthorResponse> listFans(Long userId, long page, long size) {
         requireUser(userId);
         PageUtil.check(page, size);

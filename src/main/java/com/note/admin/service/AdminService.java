@@ -206,6 +206,7 @@ public class AdminService {
                 note.getUserId(),
                 note.getTitle(),
                 note.getBookName(),
+                note.getContent(),
                 note.getVisibility(),
                 note.getAuditStatus(),
                 note.getLikeCount(),

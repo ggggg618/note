@@ -121,6 +121,19 @@ async function loadLikedNotes() {
     }
 }
 
+async function loadFollowingIds() {
+    if (!token()) {
+        followingIds = new Set();
+        return;
+    }
+    try {
+        const data = await request("/follows/me");
+        followingIds = new Set(Array.isArray(data) ? data : []);
+    } catch (e) {
+        followingIds = new Set();
+    }
+}
+
 async function request(path, options = {}) {
     options = options || {};
     options.headers = { ...authHeaders(), ...(options.headers || {}) };
@@ -171,6 +184,7 @@ let currentAuthorId = null;
 let replyToCommentId = null;
 let editingNoteId = null;
 let likedNoteIds = new Set();
+let followingIds = new Set();
 const PAGE_SIZE = 10;
 const pageState = { notes: 1, public: 1, feeds: 1, likes: 1, authors: 1, rank: 1, adminUsers: 1, adminNotes: 1 };
 $("#toggle-auth").addEventListener("click", () => {
@@ -233,7 +247,10 @@ function afterAuth() {
             b.classList.toggle("hidden", b.dataset.view !== "public");
         }
     });
-    if (logged) loadLikedNotes();
+    if (logged) {
+        loadLikedNotes();
+        loadFollowingIds();
+    }
 }
 
 function logout() {
@@ -295,12 +312,7 @@ function noteCard(note) {
     }
     if (!isOwn && note.userId != null) {
         actions.appendChild(actionButton("作者主页", () => openAuthorPage(note.userId)));
-        actions.appendChild(actionButton("关注作者", async () => {
-            try {
-                await request(`/follows/${note.userId}`, { method: "POST" });
-                notify("关注成功");
-            } catch (e) { notify(e.message); }
-        }));
+        actions.appendChild(makeFollowButton(note.userId));
     }
     if (isOwn) {
         actions.appendChild(actionButton("编辑", () => openEditor(note)));
@@ -331,6 +343,26 @@ function actionButton(text, onClick) {
 
 function likeLabel(liked) {
     return liked ? "♥ 已赞" : "♡ 点赞";
+}
+
+function makeFollowButton(targetId, onChanged) {
+    const following = followingIds.has(targetId);
+    const btn = actionButton(following ? "已关注" : "关注", async () => {
+        try {
+            if (followingIds.has(targetId)) {
+                await request(`/follows/${targetId}`, { method: "DELETE" });
+                followingIds.delete(targetId);
+                notify("已取消关注");
+            } else {
+                await request(`/follows/${targetId}`, { method: "POST" });
+                followingIds.add(targetId);
+                notify("已关注");
+            }
+            btn.textContent = followingIds.has(targetId) ? "已关注" : "关注";
+            if (onChanged) onChanged();
+        } catch (e) { notify(e.message); }
+    });
+    return btn;
 }
 
 async function runAiSummary(noteId, reloadDetail) {
@@ -423,12 +455,7 @@ function renderDetailActions(note) {
         actions.appendChild(likeBtn);
     }
     if (!isOwn && note.userId != null) {
-        actions.appendChild(actionButton("关注作者", async () => {
-            try {
-                await request(`/follows/${note.userId}`, { method: "POST" });
-                notify("关注成功");
-            } catch (e) { notify(e.message); }
-        }));
+        actions.appendChild(makeFollowButton(note.userId));
     }
     if (isOwn) {
         actions.appendChild(actionButton("编辑", () => openEditor(note)));
@@ -593,13 +620,7 @@ async function loadAuthorPage() {
         const followWrap = $("#author-follow");
         followWrap.innerHTML = "";
         if (currentUserId != null && currentUserId !== currentAuthorId) {
-            followWrap.appendChild(actionButton("关注", async () => {
-                try {
-                    await request(`/follows/${currentAuthorId}`, { method: "POST" });
-                    notify("关注成功");
-                    loadAuthorPage();
-                } catch (e) { notify(e.message); }
-            }));
+            followWrap.appendChild(makeFollowButton(currentAuthorId, loadAuthorPage));
         }
 
         const list = $("#author-notes");
@@ -614,12 +635,14 @@ async function loadAuthorPage() {
 async function loadMyNotes() {
     await ensureCurrentUser();
     await loadLikedNotes();
+    await loadFollowingIds();
     await loadPaged("notes", "#notes-list", "#notes-more", "/notes/my", "你还没有写过笔记，点右上角“新建笔记”开始吧", (n) => $("#notes-list").appendChild(noteCard(n)));
 }
 
 async function loadPublicNotes() {
     await ensureCurrentUser();
     await loadLikedNotes();
+    await loadFollowingIds();
     const keyword = $("#public-search")?.value.trim() || "";
     const path = keyword ? `/notes?keyword=${encodeURIComponent(keyword)}` : "/notes";
     await loadPaged("public", "#public-list", "#public-more", path, "这里还没有公开笔记", (n) => $("#public-list").appendChild(noteCard(n)));
@@ -628,23 +651,27 @@ async function loadPublicNotes() {
 async function loadFeeds() {
     await ensureCurrentUser();
     await loadLikedNotes();
+    await loadFollowingIds();
     await loadPaged("feeds", "#feeds-list", "#feeds-more", "/feeds", "关注作者后，他们的公开笔记会显示在这里", (n) => $("#feeds-list").appendChild(noteCard(n)));
 }
 
 async function loadMyLikes() {
     await ensureCurrentUser();
     await loadLikedNotes();
+    await loadFollowingIds();
     await loadPaged("likes", "#likes-list", "#likes-more", "/likes/me", "你还没有点赞过笔记", (n) => $("#likes-list").appendChild(noteCard(n)));
 }
 
 async function loadHotAuthors() {
     await ensureCurrentUser();
+    await loadFollowingIds();
     await loadPaged("authors", "#authors-list", "#authors-more", "/follows/rank", "还没有热门作者", (a) => $("#authors-list").appendChild(authorCard(a)));
 }
 
 async function loadRankedNotes() {
     await ensureCurrentUser();
     await loadLikedNotes();
+    await loadFollowingIds();
     await loadPaged("rank", "#rank-list", "#rank-more", "/notes/rank", "还没有热门笔记", (n) => $("#rank-list").appendChild(noteCard(n)));
 }
 
@@ -680,12 +707,7 @@ function authorCard(author) {
     actions.className = "note-actions";
     actions.appendChild(actionButton("查看主页", () => openAuthorPage(author.id)));
     if (currentUserId != null && currentUserId !== author.id) {
-        actions.appendChild(actionButton("关注", async () => {
-            try {
-                await request(`/follows/${author.id}`, { method: "POST" });
-                notify("关注成功");
-            } catch (e) { notify(e.message); }
-        }));
+        actions.appendChild(makeFollowButton(author.id));
     }
     el.appendChild(actions);
     return el;
@@ -853,6 +875,22 @@ async function loadAdmin() {
         row.innerHTML = `<span>${escapeHtml(n.title)} · ${auditLabel(n.auditStatus)}</span>`;
         const actions = document.createElement("span");
         actions.className = "row-actions";
+        const view = document.createElement("button");
+        view.textContent = "查看正文";
+        view.onclick = () => {
+            const existed = row.querySelector(".admin-note-content");
+            if (existed) {
+                existed.remove();
+                view.textContent = "查看正文";
+            } else {
+                const content = document.createElement("div");
+                content.className = "admin-note-content";
+                content.textContent = n.content || "（无正文）";
+                row.appendChild(content);
+                view.textContent = "收起正文";
+            }
+        };
+        actions.appendChild(view);
         if (n.auditStatus !== 1) {
             const pass = document.createElement("button");
             pass.textContent = "通过";
