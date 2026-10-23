@@ -22,6 +22,7 @@ import com.note.note.mapper.NoteMapper;
 import com.note.user.User;
 import com.note.user.UserMapper;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -39,6 +40,7 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class InteractionService {
 
     private final NoteLikeMapper noteLikeMapper;
@@ -67,6 +69,7 @@ public class InteractionService {
         noteMapper.update(null, new LambdaUpdateWrapper<Note>()
                 .eq(Note::getId, noteId)
                 .setSql("like_count = like_count + 1"));
+        log.info("点赞成功: userId={}, noteId={}", userId, noteId);
     }
 
     @Transactional
@@ -82,6 +85,7 @@ public class InteractionService {
         noteMapper.update(null, new LambdaUpdateWrapper<Note>()
                 .eq(Note::getId, noteId)
                 .setSql("like_count = IF(like_count > 0, like_count - 1, 0)"));
+        log.info("取消点赞: userId={}, noteId={}", userId, noteId);
     }
 
     public PageResult<NoteResponse> listMyLikes(Long userId, long page, long size) {
@@ -119,6 +123,7 @@ public class InteractionService {
         follow.setFolloweeId(targetId);
         follow.setCreatedAt(LocalDateTime.now());
         followMapper.insert(follow);
+        log.info("关注成功: follower={}, followee={}", userId, targetId);
     }
 
     public void unfollow(Long userId, Long targetId) {
@@ -129,6 +134,7 @@ public class InteractionService {
         if (deleted == 0) {
             throw new BusinessException("尚未关注该用户");
         }
+        log.info("取消关注: follower={}, followee={}", userId, targetId);
     }
 
     public PageResult<AuthorResponse> listFans(Long userId, long page, long size) {
@@ -194,6 +200,7 @@ public class InteractionService {
         comment.setUpdatedAt(now);
         comment.setDeleted(0);
         commentMapper.insert(comment);
+        log.info("发表评论: userId={}, noteId={}, commentId={}", userId, request.getNoteId(), comment.getId());
         return response(comment);
     }
 
@@ -257,6 +264,7 @@ public class InteractionService {
         for (Long deleteId : deleteIds) {
             commentMapper.deleteById(deleteId);
         }
+        log.info("删除评论: userId={}, commentId={}", userId, commentId);
     }
 
     private AuthorResponse author(Long userId, Long knownFollowerCount) {

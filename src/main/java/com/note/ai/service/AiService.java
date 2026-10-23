@@ -18,6 +18,7 @@ import com.note.common.BusinessException;
 import com.note.note.entity.Note;
 import com.note.note.mapper.NoteMapper;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,6 +28,7 @@ import java.util.List;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class AiService {
 
     private final NoteMapper noteMapper;
@@ -207,9 +209,11 @@ public class AiService {
             return response;
         } catch (BusinessException ex) {
             recordAiLog(userId, type, prompt, ex.getMessage(), 0);
+            log.error("AI 调用失败: userId={}, type={}, message={}", userId, type, ex.getMessage());
             throw ex;
         } catch (Exception ex) {
             recordAiLog(userId, type, prompt, ex.getMessage(), 0);
+            log.error("AI 调用异常: userId={}, type={}", userId, type, ex);
             throw new BusinessException("AI 调用失败");
         }
     }

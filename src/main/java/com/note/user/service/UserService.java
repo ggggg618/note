@@ -14,12 +14,14 @@ import com.note.user.dto.UserResponse;
 import com.note.util.FileStorageService;
 import com.note.util.JwtUtil;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class UserService {
 
     private final UserMapper userMapper;
@@ -42,6 +44,7 @@ public class UserService {
         user.setRole("USER");
         user.setStatus(1);
         userMapper.insert(user);
+        log.info("用户注册成功: username={}", user.getUsername());
 
         return toUserResponse(user);
     }
@@ -51,12 +54,15 @@ public class UserService {
                 new LambdaQueryWrapper<User>().eq(User::getUsername, request.getUsername())
         );
         if (user == null || !passwordEncoder.matches(request.getPassword(), user.getPassword())) {
+            log.warn("用户登录失败: username={}", request.getUsername());
             throw new BusinessException("用户名或密码错误");
         }
         if (user.getStatus() == null || user.getStatus() != 1) {
+            log.warn("禁用账号尝试登录: username={}", request.getUsername());
             throw new BusinessException("账号已被禁用");
         }
 
+        log.info("用户登录成功: userId={}, username={}", user.getId(), user.getUsername());
         String token = jwtUtil.generate(user.getId(), user.getUsername(), user.getRole());
         return new LoginResponse(token, toUserResponse(user));
     }
@@ -79,6 +85,7 @@ public class UserService {
         String url = fileStorageService.store(file);
         user.setAvatar(url);
         userMapper.updateById(user);
+        log.info("头像上传成功: userId={}, url={}", user.getId(), url);
         return url;
     }
 

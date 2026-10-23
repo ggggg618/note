@@ -103,7 +103,45 @@ function noteCard(note) {
     const el = document.createElement("div");
     el.className = "note-card";
     el.innerHTML = `<h3>${escapeHtml(note.title)}</h3><p>${escapeHtml(note.bookName || "")}</p><p>${escapeHtml((note.content || "").slice(0, 80))}</p>`;
+
+    const actions = document.createElement("div");
+    actions.className = "note-actions";
+    actions.appendChild(actionButton("点赞", async () => {
+        try {
+            await request(`/likes/${note.id}`, { method: "POST" });
+            alert("点赞成功");
+        } catch (e) { alert(e.message); }
+    }));
+    actions.appendChild(actionButton("评论", async () => {
+        const content = prompt("输入评论内容");
+        if (!content) return;
+        try {
+            await request("/comments", { method: "POST", headers: headers(), body: JSON.stringify({ noteId: note.id, content }) });
+            alert("评论成功");
+        } catch (e) { alert(e.message); }
+    }));
+    actions.appendChild(actionButton("关注作者", async () => {
+        try {
+            await request(`/follows/${note.userId}`, { method: "POST" });
+            alert("关注成功");
+        } catch (e) { alert(e.message); }
+    }));
+    actions.appendChild(actionButton("AI 总结", async () => {
+        try {
+            const data = await request("/ai/summary", { method: "POST", headers: headers(), body: JSON.stringify({ noteId: note.id }) });
+            alert(data.content);
+        } catch (e) { alert(e.message); }
+    }));
+    el.appendChild(actions);
     return el;
+}
+
+function actionButton(text, onClick) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.textContent = text;
+    btn.addEventListener("click", onClick);
+    return btn;
 }
 
 async function loadMyNotes() {

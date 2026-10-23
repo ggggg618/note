@@ -48,6 +48,8 @@ button.primary, button[type="submit"] { background: var(--accent); color: #fff; 
 }
 .note-card h3 { margin: 0 0 8px; }
 .note-card p { color: var(--muted); }
+.note-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.note-actions button { padding: 6px 10px; }
 .auth-card { max-width: 360px; margin: 60px auto; }
 form { display: flex; flex-direction: column; gap: 12px; }
 label { display: flex; flex-direction: column; gap: 6px; font-size: 14px; }

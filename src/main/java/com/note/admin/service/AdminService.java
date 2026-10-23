@@ -18,6 +18,7 @@ import com.note.note.mapper.NoteMapper;
 import com.note.user.User;
 import com.note.user.UserMapper;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
@@ -31,6 +32,7 @@ import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class AdminService {
 
     private final UserMapper userMapper;
@@ -66,6 +68,7 @@ public class AdminService {
         update.setId(userId);
         update.setStatus(status);
         userMapper.updateById(update);
+        log.info("管理员修改用户状态: userId={}, status={}", userId, status);
     }
 
     public PageResult<NoteAdminResponse> listNotes(long page, long size, Integer auditStatus) {
@@ -96,6 +99,7 @@ public class AdminService {
         if (noteMapper.updateById(update) == 0) {
             throw new BusinessException("笔记不存在");
         }
+        log.info("管理员审核笔记: noteId={}, auditStatus={}", noteId, auditStatus);
     }
 
     public void offlineNote(Long noteId) {
@@ -106,6 +110,7 @@ public class AdminService {
         if (noteMapper.updateById(update) == 0) {
             throw new BusinessException("笔记不存在");
         }
+        log.info("管理员下架笔记: noteId={}", noteId);
     }
 
     public void deleteComment(Long commentId) {
@@ -136,6 +141,7 @@ public class AdminService {
         for (Long deleteId : deleteIds) {
             commentMapper.deleteById(deleteId);
         }
+        log.info("管理员删除评论: commentId={}", commentId);
     }
 
     public AiStatsResponse aiStats() {

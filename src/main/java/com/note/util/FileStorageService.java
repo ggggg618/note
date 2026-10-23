@@ -1,6 +1,7 @@
 package com.note.util;
 
 import com.note.common.BusinessException;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -15,6 +16,7 @@ import java.util.Set;
 import java.util.UUID;
 
 @Service
+@Slf4j
 public class FileStorageService {
 
     private static final Set<String> ALLOWED_EXTENSIONS =
@@ -51,8 +53,10 @@ public class FileStorageService {
         try {
             Files.copy(file.getInputStream(), root.resolve(filename), StandardCopyOption.REPLACE_EXISTING);
         } catch (IOException e) {
+            log.error("文件保存失败: {}", filename, e);
             throw new BusinessException("Failed to store file");
         }
+        log.info("文件保存成功: {}", filename);
         return "/uploads/" + filename;
     }
 }

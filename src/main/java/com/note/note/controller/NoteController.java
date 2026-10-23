@@ -48,6 +48,13 @@ public class NoteController {
         return Result.ok(noteService.listPublicNotes(page, size, keyword));
     }
 
+    @GetMapping("/rank")
+    public Result<PageResult<NoteResponse>> listRankedNotes(
+            @RequestParam(defaultValue = "1") long page,
+            @RequestParam(defaultValue = "10") long size) {
+        return Result.ok(noteService.listRankedNotes(page, size));
+    }
+
     @GetMapping("/{id}")
     public Result<NoteResponse> getNoteDetail(@PathVariable Long id) {
         return Result.ok(noteService.getNoteDetail(UserContext.id(), id));

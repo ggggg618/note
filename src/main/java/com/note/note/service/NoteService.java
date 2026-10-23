@@ -17,6 +17,7 @@ import com.note.note.mapper.NoteImageMapper;
 import com.note.note.mapper.NoteMapper;
 import com.note.util.FileStorageService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -26,6 +27,7 @@ import java.util.List;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class NoteService {
 
     private final NoteMapper noteMapper;
@@ -45,6 +47,7 @@ public class NoteService {
         note.setAuditStatus(0);
         note.setLikeCount(0);
         noteMapper.insert(note);
+        log.info("创建笔记: userId={}, noteId={}", userId, note.getId());
         return buildResponse(getExistingNote(note.getId()));
     }
 
@@ -65,6 +68,7 @@ public class NoteService {
             updateWrapper.set(Note::getVisibility, request.getVisibility());
         }
         noteMapper.update(null, updateWrapper);
+        log.info("更新笔记: userId={}, noteId={}", userId, noteId);
         return buildResponse(getExistingNote(noteId));
     }
 
@@ -76,6 +80,7 @@ public class NoteService {
             throw new BusinessException("无权限操作");
         }
         noteMapper.deleteById(noteId);
+        log.info("删除笔记: userId={}, noteId={}", userId, noteId);
     }
 
     public PageResult<NoteResponse> listMyNotes(Long userId, long page, long size) {
@@ -103,6 +108,32 @@ public class NoteService {
                     .like(Note::getContent, keywordLike));
         }
         Page<Note> notePage = noteMapper.selectPage(new Page<>(page, size), wrapper);
+        return toPageResult(notePage, page, size);
+    }
+
+    public PageResult<NoteResponse> listRankedNotes(long page, long size) {
+        PageUtil.check(page, size);
+        Page<Note> notePage = noteMapper.selectPage(
+                new Page<>(page, size),
+                new LambdaQueryWrapper<Note>()
+                        .eq(Note::getVisibility, 1)
+                        .eq(Note::getAuditStatus, 1)
+                        .orderByDesc(Note::getLikeCount)
+                        .orderByDesc(Note::getCreatedAt)
+        );
+        return toPageResult(notePage, page, size);
+    }
+
+    public PageResult<NoteResponse> listUserPublicNotes(Long userId, long page, long size) {
+        PageUtil.check(page, size);
+        Page<Note> notePage = noteMapper.selectPage(
+                new Page<>(page, size),
+                new LambdaQueryWrapper<Note>()
+                        .eq(Note::getUserId, userId)
+                        .eq(Note::getVisibility, 1)
+                        .eq(Note::getAuditStatus, 1)
+                        .orderByDesc(Note::getCreatedAt)
+        );
         return toPageResult(notePage, page, size);
     }
 
@@ -137,6 +168,7 @@ public class NoteService {
             noteImageMapper.insert(image);
             urls.add(url);
         }
+        log.info("上传笔记图片: userId={}, noteId={}, count={}", userId, noteId, urls.size());
         return urls;
     }
 
