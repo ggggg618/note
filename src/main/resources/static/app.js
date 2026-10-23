@@ -198,7 +198,8 @@ function actionButton(text, onClick) {
 
 function showDetail() {
     document.querySelectorAll(".view").forEach((v) => v.classList.add("hidden"));
-    $("#detail-view").classList.remove("hidden");
+    const view = $("#detail-view");
+    if (view) view.classList.remove("hidden");
 }
 
 function openNoteDetail(id) {
