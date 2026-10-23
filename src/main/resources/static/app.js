@@ -410,7 +410,7 @@ async function loadNoteDetail() {
         imgWrap.innerHTML = "";
         (note.images || []).forEach((src) => {
             const img = document.createElement("img");
-            img.src = src;
+            img.src = mediaUrl(src);
             img.alt = "配图";
             imgWrap.appendChild(img);
         });
@@ -549,13 +549,13 @@ function renderCommentMedia(media, container) {
         const lower = String(url).toLowerCase();
         if (lower.endsWith(".mp4") || lower.endsWith(".mov") || lower.endsWith(".webm") || lower.endsWith(".m4v")) {
             const video = document.createElement("video");
-            video.src = url;
+            video.src = mediaUrl(url);
             video.controls = true;
             video.className = "comment-media";
             container.appendChild(video);
         } else {
             const img = document.createElement("img");
-            img.src = url;
+            img.src = mediaUrl(url);
             img.alt = "评论图片";
             img.className = "comment-media";
             container.appendChild(img);
@@ -609,7 +609,7 @@ async function loadAuthorPage() {
         avatar.innerHTML = "";
         if (author.avatar) {
             const img = document.createElement("img");
-            img.src = author.avatar;
+            img.src = mediaUrl(author.avatar);
             img.alt = "头像";
             avatar.appendChild(img);
         } else {
@@ -803,7 +803,7 @@ function renderEditorImages(images) {
         const wrap = document.createElement("div");
         wrap.className = "editor-image";
         const img = document.createElement("img");
-        img.src = url;
+        img.src = mediaUrl(url);
         img.alt = "配图";
         const del = document.createElement("button");
         del.type = "button";
@@ -939,7 +939,7 @@ function renderProfileAvatar(avatar, name) {
     box.innerHTML = "";
     if (avatar) {
         const img = document.createElement("img");
-        img.src = avatar;
+        img.src = mediaUrl(avatar);
         img.alt = "头像";
         box.appendChild(img);
     } else {
@@ -1076,6 +1076,12 @@ $("#detail-comment-send").addEventListener("click", async () => {
 
 function escapeHtml(value) {
     return String(value || "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+
+function mediaUrl(url) {
+    if (!url) return "";
+    if (url.startsWith("/uploads/")) return "/api/images/" + url.substring("/uploads/".length);
+    return url;
 }
 
 afterAuth();

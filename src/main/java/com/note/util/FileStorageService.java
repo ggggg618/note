@@ -102,6 +102,20 @@ public class FileStorageService {
         }
     }
 
+    public byte[] read(String filename) {
+        try {
+            Path file = root.resolve(filename).normalize();
+            if (!file.startsWith(root) || !Files.exists(file)) {
+                throw new BusinessException(404, "文件不存在");
+            }
+            return Files.readAllBytes(file);
+        } catch (BusinessException e) {
+            throw e;
+        } catch (IOException e) {
+            throw new BusinessException("文件读取失败");
+        }
+    }
+
     private void validateMagic(MultipartFile file, String extension, boolean video) {
         try {
             byte[] head = file.getInputStream().readNBytes(12);

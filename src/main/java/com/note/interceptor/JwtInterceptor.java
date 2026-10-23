@@ -77,6 +77,9 @@ public class JwtInterceptor implements HandlerInterceptor {
             return false;
         }
         String uri = request.getRequestURI();
+        if (uri.startsWith("/api/images/")) {
+            return true;
+        }
         return "/api/notes".equals(uri)
                 || "/api/notes/rank".equals(uri)
                 || uri.matches("/api/notes/\\d+")
