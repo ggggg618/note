@@ -80,7 +80,7 @@ CREATE TABLE IF NOT EXISTS note_ai (
     content TEXT NOT NULL,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT uk_note_ai_note_type UNIQUE (note_id, type)
+    CONSTRAINT uk_note_ai_note_id UNIQUE (note_id)
 );
 
 CREATE TABLE IF NOT EXISTS conversation (

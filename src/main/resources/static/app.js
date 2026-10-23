@@ -87,6 +87,39 @@ function confirmAction(message) {
     });
 }
 
+function confirmAiResult(title, content) {
+    return new Promise((resolve) => {
+        const overlay = document.createElement("div");
+        overlay.className = "dialog-overlay";
+        const box = document.createElement("div");
+        box.className = "dialog-box ai-result-box";
+        const label = document.createElement("div");
+        label.className = "dialog-label";
+        label.textContent = title;
+        const body = document.createElement("div");
+        body.className = "ai-result-content";
+        body.textContent = content || "";
+        const row = document.createElement("div");
+        row.className = "dialog-actions";
+        const discard = document.createElement("button");
+        discard.type = "button";
+        discard.textContent = "丢弃";
+        const save = document.createElement("button");
+        save.type = "button";
+        save.textContent = "保存";
+        row.append(discard, save);
+        box.append(label, body, row);
+        overlay.appendChild(box);
+        document.body.appendChild(overlay);
+        const close = (value) => {
+            overlay.remove();
+            resolve(value);
+        };
+        save.addEventListener("click", () => close(true));
+        discard.addEventListener("click", () => close(false));
+    });
+}
+
 async function ensureCurrentUser() {
     if (!token()) {
         currentUserId = null;
@@ -272,7 +305,10 @@ function noteCard(note) {
     el.className = "note-card";
     const likeCount = note.likeCount == null ? 0 : note.likeCount;
     const isPrivate = note.visibility === 0;
-    el.innerHTML = `<h3>${escapeHtml(note.title)}</h3><p>${escapeHtml(note.bookName || "")}</p><p>${escapeHtml((note.content || "").slice(0, 80))}</p>${isPrivate ? "" : `<div class="note-meta">赞 ${likeCount}</div>`}`;
+    const audit = note.visibility === 1 && note.auditStatus != null
+        ? `<div class="note-audit ${note.auditStatus === 2 ? "rejected" : ""}">${auditLabel(note.auditStatus)}${note.auditStatus === 2 ? " · 编辑后可重新提交" : ""}</div>`
+        : "";
+    el.innerHTML = `<h3>${escapeHtml(note.title)}</h3><p>${escapeHtml(note.bookName || "")}</p><p>${escapeHtml((note.content || "").slice(0, 80))}</p>${isPrivate ? "" : `<div class="note-meta">赞 ${likeCount}</div>`}${audit}`;
     el.style.cursor = "pointer";
     el.addEventListener("click", () => openNoteDetail(note.id));
 
@@ -368,17 +404,28 @@ function makeFollowButton(targetId, onChanged) {
 async function runAiSummary(noteId, reloadDetail) {
     try {
         const data = await request("/ai/summary", { method: "POST", headers: headers(), body: JSON.stringify({ noteId }) });
-        await request("/ai/result/save", { method: "POST", headers: headers(), body: JSON.stringify({ noteId, type: "SUMMARY", content: data.content }) });
-        notify("AI 总结已保存");
-        if (reloadDetail) loadNoteDetail();
+        const save = await confirmAiResult("AI 总结", data.content);
+        if (save) {
+            await request("/ai/result/save", { method: "POST", headers: headers(), body: JSON.stringify({ noteId, type: "SUMMARY", content: data.content }) });
+            notify("AI 总结已保存");
+            if (reloadDetail) loadNoteDetail();
+        } else {
+            notify("已丢弃");
+        }
     } catch (e) { notify(e.message); }
 }
 
 async function runAiAction(path, noteId, type) {
     try {
         const data = await request(path, { method: "POST", headers: headers(), body: JSON.stringify({ noteId }) });
-        await request("/ai/result/save", { method: "POST", headers: headers(), body: JSON.stringify({ noteId, type, content: data.content }) });
-        notify(`${type === "RECOMMEND" ? "AI 推荐" : "AI 评分"}已保存`);
+        const title = type === "RECOMMEND" ? "AI 推荐" : "AI 评分";
+        const save = await confirmAiResult(title, data.content);
+        if (save) {
+            await request("/ai/result/save", { method: "POST", headers: headers(), body: JSON.stringify({ noteId, type, content: data.content }) });
+            notify(`${title}已保存`);
+        } else {
+            notify("已丢弃");
+        }
     } catch (e) { notify(e.message); }
 }
 
@@ -415,11 +462,7 @@ async function loadNoteDetail() {
             imgWrap.appendChild(img);
         });
 
-        const aiParts = [];
-        if (note.aiSummary) aiParts.push(`<p><b>AI 总结：</b>${escapeHtml(note.aiSummary)}</p>`);
-        if (note.aiRecommend) aiParts.push(`<p><b>AI 推荐：</b>${escapeHtml(note.aiRecommend)}</p>`);
-        if (note.aiScore) aiParts.push(`<p><b>AI 评分：</b>${escapeHtml(note.aiScore)}</p>`);
-        $("#detail-ai").innerHTML = aiParts.length ? aiParts.join("") : "暂无 AI 结果";
+        $("#detail-ai").textContent = note.aiResult ? "已保存的 AI 结果：" + note.aiResult : "暂无 AI 结果";
         document.querySelectorAll("#detail-view h3, #detail-comments, #detail-view .comment-form")
             .forEach((el) => el.classList.toggle("hidden", isPrivate));
         renderDetailActions(note);

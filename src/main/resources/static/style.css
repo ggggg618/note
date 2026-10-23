@@ -51,6 +51,8 @@ button.primary, button[type="submit"] { background: var(--accent); color: #fff; 
 .note-card h3 { margin: 0 0 8px; }
 .note-card p { color: var(--muted); }
 .note-meta { margin-top: 8px; font-size: 13px; color: var(--accent-2); }
+.note-audit { margin-top: 6px; font-size: 13px; color: var(--muted); }
+.note-audit.rejected { color: #b91c1c; }
 .note-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
 .note-actions button { padding: 6px 10px; }
 .empty { color: var(--muted); padding: 24px; text-align: center; }
@@ -217,6 +219,8 @@ input, textarea, select {
 }
 
 .dialog-label { font-size: 14px; }
+.ai-result-box { max-height: 80vh; overflow: auto; }
+.ai-result-content { max-height: 50vh; overflow: auto; white-space: pre-wrap; line-height: 1.6; background: #f9fafb; padding: 10px; border-radius: 6px; }
 
 .dialog-actions { display: flex; justify-content: flex-end; gap: 8px; }
 .chat-layout {

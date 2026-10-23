@@ -256,16 +256,10 @@ public class NoteService {
         List<String> images = listImages(note.getId());
         List<NoteAi> aiResults = noteAiMapper.selectList(new LambdaQueryWrapper<NoteAi>()
                 .eq(NoteAi::getNoteId, note.getId()));
-        String summary = aiResults.stream().filter(a -> "SUMMARY".equals(a.getType()))
-                .map(NoteAi::getContent).findFirst().orElse(null);
-        String recommend = aiResults.stream().filter(a -> "RECOMMEND".equals(a.getType()))
-                .map(NoteAi::getContent).findFirst().orElse(null);
-        String score = aiResults.stream().filter(a -> "SCORE".equals(a.getType()))
-                .map(NoteAi::getContent).findFirst().orElse(null);
-        NoteResponse response = buildResponse(note, images, summary);
-        response.setAiSummary(summary);
-        response.setAiRecommend(recommend);
-        response.setAiScore(score);
+        NoteAi saved = aiResults.stream().findFirst().orElse(null);
+        String aiResult = saved == null ? null : saved.getContent();
+        NoteResponse response = buildResponse(note, images, aiResult);
+        response.setAiResult(aiResult);
         return response;
     }
 
@@ -328,8 +322,7 @@ public class NoteService {
             return Collections.emptyMap();
         }
         return noteAiMapper.selectList(new LambdaQueryWrapper<NoteAi>()
-                        .in(NoteAi::getNoteId, noteIds)
-                        .eq(NoteAi::getType, "SUMMARY"))
+                        .in(NoteAi::getNoteId, noteIds))
                 .stream()
                 .collect(Collectors.toMap(NoteAi::getNoteId, NoteAi::getContent));
     }

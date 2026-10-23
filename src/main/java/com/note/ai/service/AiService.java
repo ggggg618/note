@@ -63,8 +63,7 @@ public class AiService {
     public AiResponse saveResult(Long userId, SaveAiRequest request) {
         requireOwnedNote(userId, request.getNoteId());
         NoteAi existing = noteAiMapper.selectOne(new LambdaQueryWrapper<NoteAi>()
-                .eq(NoteAi::getNoteId, request.getNoteId())
-                .eq(NoteAi::getType, request.getType()));
+                .eq(NoteAi::getNoteId, request.getNoteId()));
 
         LocalDateTime now = LocalDateTime.now();
         if (existing == null) {
@@ -76,6 +75,7 @@ public class AiService {
             existing.setUpdatedAt(now);
             noteAiMapper.insert(existing);
         } else {
+            existing.setType(request.getType());
             existing.setContent(request.getContent());
             existing.setUpdatedAt(now);
             noteAiMapper.updateById(existing);
@@ -87,8 +87,7 @@ public class AiService {
     public NoteAi getResult(Long userId, Long noteId) {
         requireOwnedNote(userId, noteId);
         return noteAiMapper.selectOne(new LambdaQueryWrapper<NoteAi>()
-                .eq(NoteAi::getNoteId, noteId)
-                .eq(NoteAi::getType, "SUMMARY"));
+                .eq(NoteAi::getNoteId, noteId));
     }
 
     public ConversationResponse createConversation(Long userId) {
