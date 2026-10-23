@@ -84,7 +84,7 @@ public class InteractionService {
 
         noteMapper.update(null, new LambdaUpdateWrapper<Note>()
                 .eq(Note::getId, noteId)
-                .setSql("like_count = IF(like_count > 0, like_count - 1, 0)"));
+                .setSql("like_count = CASE WHEN like_count > 0 THEN like_count - 1 ELSE 0 END"));
         log.info("取消点赞: userId={}, noteId={}", userId, noteId);
     }
 

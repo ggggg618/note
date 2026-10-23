@@ -3,6 +3,7 @@ package com.note.common;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -17,16 +18,20 @@ import java.util.stream.Collectors;
 public class GlobalExceptionHandler {
 
     @ExceptionHandler(BusinessException.class)
-    public Result<Void> handleBusiness(BusinessException e) {
-        return Result.error(e.getCode(), e.getMessage());
+    public ResponseEntity<Result<Void>> handleBusiness(BusinessException e) {
+        HttpStatus status = HttpStatus.resolve(e.getCode());
+        if (status == null) {
+            status = HttpStatus.BAD_REQUEST;
+        }
+        return ResponseEntity.status(status).body(Result.error(e.getCode(), e.getMessage()));
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    public Result<Void> handleValidation(MethodArgumentNotValidException e) {
+    public ResponseEntity<Result<Void>> handleValidation(MethodArgumentNotValidException e) {
         String message = e.getBindingResult().getFieldErrors().stream()
                 .map(FieldError::getDefaultMessage)
                 .collect(Collectors.joining("; "));
-        return Result.error(400, message);
+        return ResponseEntity.badRequest().body(Result.error(400, message));
     }
 
     @ExceptionHandler(NoResourceFoundException.class)
@@ -36,8 +41,8 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(DuplicateKeyException.class)
-    public Result<Void> handleDuplicateKey(DuplicateKeyException e) {
-        return Result.error(400, "数据已存在");
+    public ResponseEntity<Result<Void>> handleDuplicateKey(DuplicateKeyException e) {
+        return ResponseEntity.badRequest().body(Result.error(400, "数据已存在"));
     }
 
     @ExceptionHandler(Exception.class)

@@ -27,7 +27,11 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -190,6 +194,17 @@ public class NoteService {
     }
 
     private NoteResponse buildResponse(Note note) {
+        List<String> images = listImages(note.getId());
+        String aiResult = null;
+        NoteAi noteAi = noteAiMapper.selectOne(new LambdaQueryWrapper<NoteAi>()
+                .eq(NoteAi::getNoteId, note.getId()));
+        if (noteAi != null) {
+            aiResult = noteAi.getContent();
+        }
+        return buildResponse(note, images, aiResult);
+    }
+
+    private NoteResponse buildResponse(Note note, List<String> images, String aiResult) {
         NoteResponse response = new NoteResponse();
         response.setId(note.getId());
         response.setUserId(note.getUserId());
@@ -200,10 +215,8 @@ public class NoteService {
         response.setAuditStatus(note.getAuditStatus());
         response.setLikeCount(note.getLikeCount());
         response.setCreatedAt(note.getCreatedAt());
-        response.setImages(listImages(note.getId()));
-        NoteAi noteAi = noteAiMapper.selectOne(new LambdaQueryWrapper<NoteAi>()
-                .eq(NoteAi::getNoteId, note.getId()));
-        response.setAiResult(noteAi == null ? null : noteAi.getContent());
+        response.setImages(images);
+        response.setAiResult(aiResult);
         return response;
     }
 
@@ -220,11 +233,39 @@ public class NoteService {
     }
 
     private PageResult<NoteResponse> toPageResult(Page<Note> notePage, long page, long size) {
-        List<NoteResponse> records = notePage.getRecords()
-                .stream()
-                .map(this::buildResponse)
+        List<Note> notes = notePage.getRecords();
+        List<Long> noteIds = notes.stream().map(Note::getId).collect(Collectors.toList());
+        Map<Long, List<String>> imagesByNote = imagesByNote(noteIds);
+        Map<Long, String> aiByNote = aiByNote(noteIds);
+        List<NoteResponse> records = notes.stream()
+                .map(note -> buildResponse(note,
+                        imagesByNote.getOrDefault(note.getId(), Collections.emptyList()),
+                        aiByNote.get(note.getId())))
                 .toList();
         return new PageResult<>(notePage.getTotal(), page, size, records);
+    }
+
+    private Map<Long, List<String>> imagesByNote(List<Long> noteIds) {
+        if (noteIds.isEmpty()) {
+            return Collections.emptyMap();
+        }
+        return noteImageMapper.selectList(new LambdaQueryWrapper<NoteImage>()
+                        .in(NoteImage::getNoteId, noteIds)
+                        .orderByAsc(NoteImage::getSortOrder)
+                        .orderByAsc(NoteImage::getId))
+                .stream()
+                .collect(Collectors.groupingBy(NoteImage::getNoteId, LinkedHashMap::new,
+                        Collectors.mapping(NoteImage::getUrl, Collectors.toList())));
+    }
+
+    private Map<Long, String> aiByNote(List<Long> noteIds) {
+        if (noteIds.isEmpty()) {
+            return Collections.emptyMap();
+        }
+        return noteAiMapper.selectList(new LambdaQueryWrapper<NoteAi>()
+                        .in(NoteAi::getNoteId, noteIds))
+                .stream()
+                .collect(Collectors.toMap(NoteAi::getNoteId, NoteAi::getContent));
     }
 
     private Note getExistingNote(Long noteId) {

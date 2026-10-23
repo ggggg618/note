@@ -63,6 +63,9 @@ public class AdminService {
         if (status == null || (status != 0 && status != 1)) {
             throw new BusinessException("用户状态只能为0或1");
         }
+        if (userMapper.selectById(userId) == null) {
+            throw new BusinessException("用户不存在");
+        }
 
         User update = new User();
         update.setId(userId);
