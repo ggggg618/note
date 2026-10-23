@@ -57,6 +57,36 @@ function askText(message) {
     });
 }
 
+function confirmAction(message) {
+    return new Promise((resolve) => {
+        const overlay = document.createElement("div");
+        overlay.className = "dialog-overlay";
+        const box = document.createElement("div");
+        box.className = "dialog-box";
+        const label = document.createElement("div");
+        label.className = "dialog-label";
+        label.textContent = message;
+        const ok = document.createElement("button");
+        ok.type = "button";
+        ok.textContent = "确定";
+        const cancel = document.createElement("button");
+        cancel.type = "button";
+        cancel.textContent = "取消";
+        const row = document.createElement("div");
+        row.className = "dialog-actions";
+        row.append(cancel, ok);
+        box.append(label, row);
+        overlay.appendChild(box);
+        document.body.appendChild(overlay);
+        const close = (value) => {
+            overlay.remove();
+            resolve(value);
+        };
+        ok.addEventListener("click", () => close(true));
+        cancel.addEventListener("click", () => close(false));
+    });
+}
+
 async function ensureCurrentUser() {
     if (!token()) {
         currentUserId = null;
@@ -107,6 +137,7 @@ function showView(name) {
     if (name === "likes") loadMyLikes();
     if (name === "authors") loadHotAuthors();
     if (name === "chat") loadChat();
+    if (name === "profile") loadProfile();
     if (name === "admin") loadAdmin();
 }
 
@@ -197,14 +228,14 @@ function noteCard(note) {
     const el = document.createElement("div");
     el.className = "note-card";
     const likeCount = note.likeCount == null ? 0 : note.likeCount;
-    el.innerHTML = `<h3>${escapeHtml(note.title)}</h3><p>${escapeHtml(note.bookName || "")}</p><p>${escapeHtml((note.content || "").slice(0, 80))}</p><div class="note-meta">赞 ${likeCount}</div>`;
+    const isPrivate = note.visibility === 0;
+    el.innerHTML = `<h3>${escapeHtml(note.title)}</h3><p>${escapeHtml(note.bookName || "")}</p><p>${escapeHtml((note.content || "").slice(0, 80))}</p>${isPrivate ? "" : `<div class="note-meta">赞 ${likeCount}</div>`}`;
     el.style.cursor = "pointer";
     el.addEventListener("click", () => openNoteDetail(note.id));
 
     const actions = document.createElement("div");
     actions.className = "note-actions";
     const isOwn = currentUserId != null && note.userId != null && note.userId === currentUserId;
-    const isPrivate = note.visibility === 0;
     let displayedLikeCount = likeCount;
 
     if (!isPrivate) {
@@ -247,12 +278,17 @@ function noteCard(note) {
     }
     if (isOwn) {
         actions.appendChild(actionButton("编辑", () => openEditor(note)));
-        actions.appendChild(actionButton("AI 总结", async () => {
+        actions.appendChild(actionButton("删除", async () => {
+            if (!(await confirmAction("确定删除这篇笔记吗？"))) return;
             try {
-                const data = await request("/ai/summary", { method: "POST", headers: headers(), body: JSON.stringify({ noteId: note.id }) });
-                notify(data.content);
+                await request(`/notes/${note.id}`, { method: "DELETE" });
+                notify("已删除");
+                showView("notes");
             } catch (e) { notify(e.message); }
         }));
+        actions.appendChild(actionButton("AI 总结", () => runAiSummary(note.id, false)));
+        actions.appendChild(actionButton("AI 推荐", () => runAiAction("/ai/recommend", note.id, "RECOMMEND")));
+        actions.appendChild(actionButton("AI 评分", () => runAiAction("/ai/score", note.id, "SCORE")));
     }
     el.appendChild(actions);
     return el;
@@ -271,6 +307,22 @@ function likeLabel(liked) {
     return liked ? "♥ 已赞" : "♡ 点赞";
 }
 
+async function runAiSummary(noteId, reloadDetail) {
+    try {
+        const data = await request("/ai/summary", { method: "POST", headers: headers(), body: JSON.stringify({ noteId }) });
+        await request("/ai/result/save", { method: "POST", headers: headers(), body: JSON.stringify({ noteId, type: "SUMMARY", content: data.content }) });
+        notify("AI 总结已保存");
+        if (reloadDetail) loadNoteDetail();
+    } catch (e) { notify(e.message); }
+}
+
+async function runAiAction(path, noteId, type) {
+    try {
+        const data = await request(path, { method: "POST", headers: headers(), body: JSON.stringify({ noteId }) });
+        notify(data.content);
+    } catch (e) { notify(e.message); }
+}
+
 function showDetail() {
     document.querySelectorAll(".view").forEach((v) => v.classList.add("hidden"));
     const view = $("#detail-view");
@@ -287,9 +339,10 @@ async function loadNoteDetail() {
     try {
         await ensureCurrentUser();
         const note = await request(`/notes/${detailNoteId}`);
+        const isPrivate = note.visibility === 0;
         const author = await request(`/users/${note.userId}`);
         $("#detail-title").textContent = note.title;
-        $("#detail-meta").innerHTML = `<button class="link-btn" id="detail-author">${escapeHtml(author.nickname || author.username)}</button> · ${formatDate(note.createdAt)} · 点赞 ${note.likeCount}`;
+        $("#detail-meta").innerHTML = `<button class="link-btn" id="detail-author">${escapeHtml(author.nickname || author.username)}</button> · ${formatDate(note.createdAt)}${isPrivate ? "" : ` · 点赞 ${note.likeCount}`}`;
         $("#detail-author").addEventListener("click", () => openAuthorPage(note.userId));
         $("#detail-book").textContent = "书名：" + (note.bookName || "");
         $("#detail-content").textContent = note.content || "";
@@ -304,6 +357,8 @@ async function loadNoteDetail() {
         });
 
         $("#detail-ai").textContent = note.aiResult ? "AI 总结：" + note.aiResult : "暂无 AI 总结";
+        document.querySelectorAll("#detail-view h3, #detail-comments, #detail-view .comment-form")
+            .forEach((el) => el.classList.toggle("hidden", isPrivate));
         renderDetailActions(note);
         await loadComments(note.id);
     } catch (e) {
@@ -316,23 +371,26 @@ function renderDetailActions(note) {
     const actions = $("#detail-actions");
     actions.innerHTML = "";
     const isOwn = currentUserId != null && note.userId != null && note.userId === currentUserId;
-    const likeBtn = actionButton(likeLabel(likedNoteIds.has(note.id)), async () => {
-        try {
-            const wasLiked = likedNoteIds.has(note.id);
-            if (wasLiked) {
-                await request(`/likes/${note.id}`, { method: "DELETE" });
-                likedNoteIds.delete(note.id);
-                notify("已取消点赞");
-            } else {
-                await request(`/likes/${note.id}`, { method: "POST" });
-                likedNoteIds.add(note.id);
-                notify("点赞成功");
-            }
-            likeBtn.textContent = likeLabel(likedNoteIds.has(note.id));
-            loadNoteDetail();
-        } catch (e) { notify(e.message); }
-    });
-    actions.appendChild(likeBtn);
+    const isPrivate = note.visibility === 0;
+    if (!isPrivate) {
+        const likeBtn = actionButton(likeLabel(likedNoteIds.has(note.id)), async () => {
+            try {
+                const wasLiked = likedNoteIds.has(note.id);
+                if (wasLiked) {
+                    await request(`/likes/${note.id}`, { method: "DELETE" });
+                    likedNoteIds.delete(note.id);
+                    notify("已取消点赞");
+                } else {
+                    await request(`/likes/${note.id}`, { method: "POST" });
+                    likedNoteIds.add(note.id);
+                    notify("点赞成功");
+                }
+                likeBtn.textContent = likeLabel(likedNoteIds.has(note.id));
+                loadNoteDetail();
+            } catch (e) { notify(e.message); }
+        });
+        actions.appendChild(likeBtn);
+    }
     if (!isOwn && note.userId != null) {
         actions.appendChild(actionButton("关注作者", async () => {
             try {
@@ -342,12 +400,18 @@ function renderDetailActions(note) {
         }));
     }
     if (isOwn) {
-        actions.appendChild(actionButton("AI 总结", async () => {
+        actions.appendChild(actionButton("编辑", () => openEditor(note)));
+        actions.appendChild(actionButton("删除", async () => {
+            if (!(await confirmAction("确定删除这篇笔记吗？"))) return;
             try {
-                const data = await request("/ai/summary", { method: "POST", headers: headers(), body: JSON.stringify({ noteId: note.id }) });
-                notify(data.content);
+                await request(`/notes/${note.id}`, { method: "DELETE" });
+                notify("已删除");
+                showView("notes");
             } catch (e) { notify(e.message); }
         }));
+        actions.appendChild(actionButton("AI 总结", () => runAiSummary(note.id, true)));
+        actions.appendChild(actionButton("AI 推荐", () => runAiAction("/ai/recommend", note.id, "RECOMMEND")));
+        actions.appendChild(actionButton("AI 评分", () => runAiAction("/ai/score", note.id, "SCORE")));
     }
 }
 
@@ -707,6 +771,47 @@ async function loadAdmin() {
         $("#admin-notes").appendChild(row);
     });
 }
+
+async function loadProfile() {
+    await ensureCurrentUser();
+    const me = await request("/user/me");
+    $("#profile-nickname").value = me.nickname || "";
+    renderProfileAvatar(me.avatar, me.nickname || me.username);
+}
+
+function renderProfileAvatar(avatar, name) {
+    const box = $("#profile-avatar");
+    box.innerHTML = "";
+    if (avatar) {
+        const img = document.createElement("img");
+        img.src = avatar;
+        img.alt = "头像";
+        box.appendChild(img);
+    } else {
+        box.textContent = (name || "?").slice(0, 1);
+    }
+}
+
+$("#profile-save").addEventListener("click", async () => {
+    try {
+        await request("/user/me", { method: "PUT", headers: headers(), body: JSON.stringify({ nickname: $("#profile-nickname").value }) });
+        notify("昵称已保存");
+    } catch (e) { notify(e.message); }
+});
+
+$("#profile-avatar-file").addEventListener("change", async () => {
+    const file = $("#profile-avatar-file").files[0];
+    if (!file) return;
+    const fd = new FormData();
+    fd.append("file", file);
+    try {
+        const res = await fetch(API + "/user/avatar", { method: "POST", headers: authHeaders(), body: fd });
+        const body = await res.json();
+        if (body.code !== 200) throw new Error(body.message || "上传失败");
+        notify("头像已更新");
+        loadProfile();
+    } catch (e) { notify(e.message); }
+});
 
 $("#new-chat").addEventListener("click", async () => {
     try {

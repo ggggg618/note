@@ -4,6 +4,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.note.common.AuthUser;
 import com.note.common.Result;
 import com.note.common.UserContext;
+import com.note.user.User;
+import com.note.user.UserMapper;
 import com.note.util.JwtUtil;
 import io.jsonwebtoken.Claims;
 import jakarta.servlet.http.HttpServletRequest;
@@ -21,6 +23,7 @@ public class JwtInterceptor implements HandlerInterceptor {
 
     private final JwtUtil jwtUtil;
     private final ObjectMapper objectMapper;
+    private final UserMapper userMapper;
 
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
@@ -39,6 +42,11 @@ public class JwtInterceptor implements HandlerInterceptor {
             Claims claims = jwtUtil.parse(header.substring(7));
             Long id = claims.get("userId", Number.class).longValue();
             String role = claims.get("role", String.class);
+            User user = userMapper.selectById(id);
+            if (user == null || user.getStatus() == null || user.getStatus() != 1) {
+                writeUnauthorized(response);
+                return false;
+            }
             UserContext.set(new AuthUser(id, claims.getSubject(), role));
             return true;
         } catch (Exception e) {

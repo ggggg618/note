@@ -17,5 +17,7 @@ public class NoteResponse {
 
     private String bookName;
 
+    private String content;
+
     private Long likeCount;
 }

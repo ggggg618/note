@@ -111,7 +111,7 @@ public class InteractionService {
         List<NoteResponse> records = likePage.getRecords().stream()
                 .map(like -> noteMap.get(like.getNoteId()))
                 .filter(Objects::nonNull)
-                .map(note -> new NoteResponse(note.getId(), note.getUserId(), note.getTitle(), note.getBookName(),
+                .map(note -> new NoteResponse(note.getId(), note.getUserId(), note.getTitle(), note.getBookName(), note.getContent(),
                         likeCount(note)))
                 .collect(Collectors.toList());
 
@@ -140,7 +140,7 @@ public class InteractionService {
                         .orderByDesc(Note::getId));
 
         List<NoteResponse> records = notePage.getRecords().stream()
-                .map(note -> new NoteResponse(note.getId(), note.getUserId(), note.getTitle(), note.getBookName(),
+                .map(note -> new NoteResponse(note.getId(), note.getUserId(), note.getTitle(), note.getBookName(), note.getContent(),
                         likeCount(note)))
                 .collect(Collectors.toList());
 
@@ -248,7 +248,9 @@ public class InteractionService {
             throw new BusinessException("用户不存在");
         }
         long noteCount = safeCount(noteMapper.selectCount(new LambdaQueryWrapper<Note>()
-                .eq(Note::getUserId, userId)));
+                .eq(Note::getUserId, userId)
+                .eq(Note::getVisibility, 1)
+                .eq(Note::getAuditStatus, 1)));
         long followerCount = safeCount(followMapper.selectCount(new LambdaQueryWrapper<Follow>()
                 .eq(Follow::getFolloweeId, userId)));
         long followingCount = safeCount(followMapper.selectCount(new LambdaQueryWrapper<Follow>()
@@ -357,7 +359,9 @@ public class InteractionService {
             return Collections.emptyMap();
         }
         return noteMapper.selectList(new LambdaQueryWrapper<Note>()
-                        .in(Note::getUserId, userIds))
+                        .in(Note::getUserId, userIds)
+                        .eq(Note::getVisibility, 1)
+                        .eq(Note::getAuditStatus, 1))
                 .stream()
                 .collect(Collectors.groupingBy(Note::getUserId, Collectors.counting()));
     }

@@ -54,6 +54,7 @@ public class FileStorageService {
         if (file.getSize() > maxSize) {
             throw new BusinessException("File is too large");
         }
+        validateMagic(file, extension, video);
         String filename = UUID.randomUUID() + "." + extension;
         try {
             Files.copy(file.getInputStream(), root.resolve(filename), StandardCopyOption.REPLACE_EXISTING);
@@ -63,5 +64,39 @@ public class FileStorageService {
         }
         log.info("文件保存成功: {}", filename);
         return "/uploads/" + filename;
+    }
+
+    private void validateMagic(MultipartFile file, String extension, boolean video) {
+        try {
+            byte[] head = file.getInputStream().readNBytes(12);
+            boolean valid;
+            if (video) {
+                if ("webm".equals(extension)) {
+                    valid = head.length >= 4
+                            && (head[0] & 0xff) == 0x1A
+                            && (head[1] & 0xff) == 0x45
+                            && (head[2] & 0xff) == 0xDF
+                            && (head[3] & 0xff) == 0xA3;
+                } else {
+                    valid = head.length >= 8 && "ftyp".equals(new String(head, 4, 4));
+                }
+            } else {
+                valid = switch (extension) {
+                    case "jpg", "jpeg" -> head.length >= 3 && (head[0] & 0xff) == 0xFF && (head[1] & 0xff) == 0xD8 && (head[2] & 0xff) == 0xFF;
+                    case "png" -> head.length >= 8 && (head[0] & 0xff) == 0x89 && head[1] == 0x50 && head[2] == 0x4E && head[3] == 0x47;
+                    case "gif" -> head.length >= 4 && head[0] == 0x47 && head[1] == 0x49 && head[2] == 0x46;
+                    case "webp" -> head.length >= 12 && head[0] == 0x52 && head[1] == 0x49 && head[2] == 0x46 && head[3] == 0x46
+                            && head[8] == 0x57 && head[9] == 0x45 && head[10] == 0x42 && head[11] == 0x50;
+                    default -> false;
+                };
+            }
+            if (!valid) {
+                throw new BusinessException("文件内容与格式不符");
+            }
+        } catch (BusinessException e) {
+            throw e;
+        } catch (IOException e) {
+            throw new BusinessException("文件读取失败");
+        }
     }
 }

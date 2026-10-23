@@ -31,6 +31,7 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 @Service
@@ -76,10 +77,15 @@ public class NoteService {
         boolean becomesPublic = request.getVisibility() != null
                 ? request.getVisibility() == 1
                 : Integer.valueOf(1).equals(note.getVisibility());
+        boolean contentChanged = !Objects.equals(request.getTitle(), note.getTitle())
+                || !Objects.equals(request.getContent(), note.getContent())
+                || !Objects.equals(request.getBookName(), note.getBookName());
+        boolean visibilityChanged = request.getVisibility() != null
+                && !Objects.equals(request.getVisibility(), note.getVisibility());
         if (request.getVisibility() != null) {
             updateWrapper.set(Note::getVisibility, request.getVisibility());
         }
-        if (becomesPublic) {
+        if (becomesPublic && (contentChanged || visibilityChanged)) {
             updateWrapper.set(Note::getAuditStatus, 0);
         }
         noteMapper.update(null, updateWrapper);

@@ -20,10 +20,17 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class UserService {
+
+    private static final int MAX_LOGIN_ATTEMPTS = 5;
+    private static final long LOCK_MS = 15 * 60 * 1000L;
+    private static final Map<String, long[]> LOGIN_FAILURES = new ConcurrentHashMap<>();
 
     private final UserMapper userMapper;
     private final PasswordEncoder passwordEncoder;
@@ -51,10 +58,16 @@ public class UserService {
     }
 
     public LoginResponse login(LoginRequest request) {
+        long now = System.currentTimeMillis();
+        long[] failure = LOGIN_FAILURES.get(request.getUsername());
+        if (failure != null && failure[1] > now && failure[0] >= MAX_LOGIN_ATTEMPTS) {
+            throw new BusinessException(429, "尝试次数过多，请15分钟后再试");
+        }
         User user = userMapper.selectOne(
                 new LambdaQueryWrapper<User>().eq(User::getUsername, request.getUsername())
         );
         if (user == null || !passwordEncoder.matches(request.getPassword(), user.getPassword())) {
+            recordLoginFailure(request.getUsername(), now);
             log.warn("用户登录失败: username={}", request.getUsername());
             throw new BusinessException("用户名或密码错误");
         }
@@ -63,9 +76,19 @@ public class UserService {
             throw new BusinessException("账号已被禁用");
         }
 
+        LOGIN_FAILURES.remove(request.getUsername());
         log.info("用户登录成功: userId={}, username={}", user.getId(), user.getUsername());
         String token = jwtUtil.generate(user.getId(), user.getUsername(), user.getRole());
         return new LoginResponse(token, toUserResponse(user));
+    }
+
+    private void recordLoginFailure(String username, long now) {
+        long[] failure = LOGIN_FAILURES.computeIfAbsent(username, k -> new long[2]);
+        if (failure[1] <= now) {
+            failure[0] = 0;
+            failure[1] = now + LOCK_MS;
+        }
+        failure[0]++;
     }
 
     public UserResponse getProfile() {
