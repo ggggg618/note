@@ -131,11 +131,13 @@ async function request(path, options = {}) {
 function showView(name) {
     document.querySelectorAll(".view").forEach((v) => v.classList.add("hidden"));
     $("#" + name + "-view").classList.remove("hidden");
+    if (pageState[name] != null) pageState[name] = 1;
     if (name === "notes") loadMyNotes();
     if (name === "public") loadPublicNotes();
     if (name === "feeds") loadFeeds();
     if (name === "likes") loadMyLikes();
     if (name === "authors") loadHotAuthors();
+    if (name === "rank") loadRankedNotes();
     if (name === "chat") loadChat();
     if (name === "profile") loadProfile();
     if (name === "admin") loadAdmin();
@@ -158,6 +160,8 @@ let currentAuthorId = null;
 let replyToCommentId = null;
 let editingNoteId = null;
 let likedNoteIds = new Set();
+const PAGE_SIZE = 10;
+const pageState = { notes: 1, public: 1, feeds: 1, likes: 1, authors: 1, rank: 1 };
 $("#toggle-auth").addEventListener("click", () => {
     registerMode = !registerMode;
     renderAuthMode();
@@ -568,60 +572,38 @@ async function loadAuthorPage() {
 async function loadMyNotes() {
     await ensureCurrentUser();
     await loadLikedNotes();
-    const data = await request("/notes/my?page=1&size=50");
-    $("#notes-list").innerHTML = "";
-    if (!data.records || data.records.length === 0) {
-        renderEmpty($("#notes-list"), "你还没有写过笔记，点右上角“新建笔记”开始吧");
-        return;
-    }
-    (data.records || []).forEach((n) => $("#notes-list").appendChild(noteCard(n)));
+    await loadPaged("notes", "#notes-list", "#notes-more", "/notes/my", "你还没有写过笔记，点右上角“新建笔记”开始吧", (n) => $("#notes-list").appendChild(noteCard(n)));
 }
 
 async function loadPublicNotes() {
     await ensureCurrentUser();
     await loadLikedNotes();
-    const data = await request("/notes?page=1&size=50");
-    $("#public-list").innerHTML = "";
-    if (!data.records || data.records.length === 0) {
-        renderEmpty($("#public-list"), "这里还没有公开笔记");
-        return;
-    }
-    (data.records || []).forEach((n) => $("#public-list").appendChild(noteCard(n)));
+    const keyword = $("#public-search")?.value.trim() || "";
+    const path = keyword ? `/notes?keyword=${encodeURIComponent(keyword)}` : "/notes";
+    await loadPaged("public", "#public-list", "#public-more", path, "这里还没有公开笔记", (n) => $("#public-list").appendChild(noteCard(n)));
 }
 
 async function loadFeeds() {
     await ensureCurrentUser();
     await loadLikedNotes();
-    const data = await request("/feeds?page=1&size=50");
-    $("#feeds-list").innerHTML = "";
-    if (!data.records || data.records.length === 0) {
-        renderEmpty($("#feeds-list"), "关注作者后，他们的公开笔记会显示在这里");
-        return;
-    }
-    (data.records || []).forEach((n) => $("#feeds-list").appendChild(noteCard(n)));
+    await loadPaged("feeds", "#feeds-list", "#feeds-more", "/feeds", "关注作者后，他们的公开笔记会显示在这里", (n) => $("#feeds-list").appendChild(noteCard(n)));
 }
 
 async function loadMyLikes() {
     await ensureCurrentUser();
     await loadLikedNotes();
-    const data = await request("/likes/me?page=1&size=50");
-    $("#likes-list").innerHTML = "";
-    if (!data.records || data.records.length === 0) {
-        renderEmpty($("#likes-list"), "你还没有点赞过笔记");
-        return;
-    }
-    (data.records || []).forEach((n) => $("#likes-list").appendChild(noteCard(n)));
+    await loadPaged("likes", "#likes-list", "#likes-more", "/likes/me", "你还没有点赞过笔记", (n) => $("#likes-list").appendChild(noteCard(n)));
 }
 
 async function loadHotAuthors() {
     await ensureCurrentUser();
-    const data = await request("/follows/rank?page=1&size=50");
-    $("#authors-list").innerHTML = "";
-    if (!data.records || data.records.length === 0) {
-        renderEmpty($("#authors-list"), "还没有热门作者");
-        return;
-    }
-    (data.records || []).forEach((a) => $("#authors-list").appendChild(authorCard(a)));
+    await loadPaged("authors", "#authors-list", "#authors-more", "/follows/rank", "还没有热门作者", (a) => $("#authors-list").appendChild(authorCard(a)));
+}
+
+async function loadRankedNotes() {
+    await ensureCurrentUser();
+    await loadLikedNotes();
+    await loadPaged("rank", "#rank-list", "#rank-more", "/notes/rank", "还没有热门笔记", (n) => $("#rank-list").appendChild(noteCard(n)));
 }
 
 function renderEmpty(container, message) {
@@ -629,6 +611,23 @@ function renderEmpty(container, message) {
     div.className = "empty";
     div.textContent = message;
     container.appendChild(div);
+}
+
+async function loadPaged(name, listSel, moreSel, path, emptyMsg, renderFn) {
+    const page = pageState[name];
+    const sep = path.includes("?") ? "&" : "?";
+    const data = await request(`${path}${sep}page=${page}&size=${PAGE_SIZE}`);
+    const list = $(listSel);
+    if (page === 1) list.innerHTML = "";
+    const records = data.records || [];
+    if (records.length === 0) {
+        if (page === 1) renderEmpty(list, emptyMsg);
+        $(moreSel).classList.add("hidden");
+        return;
+    }
+    records.forEach(renderFn);
+    const hasMore = records.length === PAGE_SIZE && (data.total == null || page * PAGE_SIZE < data.total);
+    $(moreSel).classList.toggle("hidden", !hasMore);
 }
 
 function authorCard(author) {
@@ -812,6 +811,24 @@ $("#profile-avatar-file").addEventListener("change", async () => {
         loadProfile();
     } catch (e) { notify(e.message); }
 });
+
+$("#public-search-btn").addEventListener("click", () => {
+    pageState.public = 1;
+    loadPublicNotes();
+});
+
+function bindMore(name, moreSel, fn) {
+    $(moreSel).addEventListener("click", () => {
+        pageState[name]++;
+        fn();
+    });
+}
+bindMore("notes", "#notes-more", loadMyNotes);
+bindMore("public", "#public-more", loadPublicNotes);
+bindMore("rank", "#rank-more", loadRankedNotes);
+bindMore("feeds", "#feeds-more", loadFeeds);
+bindMore("likes", "#likes-more", loadMyLikes);
+bindMore("authors", "#authors-more", loadHotAuthors);
 
 $("#new-chat").addEventListener("click", async () => {
     try {

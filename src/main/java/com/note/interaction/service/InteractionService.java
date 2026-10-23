@@ -24,8 +24,10 @@ import com.note.note.entity.Note;
 import com.note.note.mapper.NoteMapper;
 import com.note.user.User;
 import com.note.user.UserMapper;
+import com.note.util.FileStorageService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -53,6 +55,7 @@ public class InteractionService {
     private final NoteMapper noteMapper;
     private final UserMapper userMapper;
     private final ObjectMapper objectMapper;
+    private final FileStorageService fileStorageService;
 
     @Transactional
     public void likeNote(Long userId, Long noteId) {
@@ -69,7 +72,11 @@ public class InteractionService {
         like.setUserId(userId);
         like.setNoteId(noteId);
         like.setCreatedAt(LocalDateTime.now());
-        noteLikeMapper.insert(like);
+        try {
+            noteLikeMapper.insert(like);
+        } catch (DuplicateKeyException e) {
+            throw new BusinessException("请勿重复点赞");
+        }
 
         noteMapper.update(null, new LambdaUpdateWrapper<Note>()
                 .eq(Note::getId, noteId)
@@ -163,7 +170,11 @@ public class InteractionService {
         follow.setFollowerId(userId);
         follow.setFolloweeId(targetId);
         follow.setCreatedAt(LocalDateTime.now());
-        followMapper.insert(follow);
+        try {
+            followMapper.insert(follow);
+        } catch (DuplicateKeyException e) {
+            throw new BusinessException("已关注该用户");
+        }
         log.info("关注成功: follower={}, followee={}", userId, targetId);
     }
 
@@ -341,6 +352,13 @@ public class InteractionService {
             }
         }
         for (Long deleteId : deleteIds) {
+            Comment deleting = comments.stream()
+                    .filter(c -> c.getId().equals(deleteId))
+                    .findFirst()
+                    .orElse(null);
+            if (deleting != null) {
+                parseMedia(deleting.getMedia()).forEach(fileStorageService::delete);
+            }
             commentMapper.deleteById(deleteId);
         }
         log.info("删除评论: userId={}, commentId={}", userId, commentId);

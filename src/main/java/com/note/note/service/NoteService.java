@@ -101,6 +101,9 @@ public class NoteService {
             throw new BusinessException("无权限操作");
         }
         noteMapper.deleteById(noteId);
+        List<NoteImage> images = noteImageMapper.selectList(new LambdaQueryWrapper<NoteImage>()
+                .eq(NoteImage::getNoteId, noteId));
+        images.forEach(image -> fileStorageService.delete(image.getUrl()));
         noteImageMapper.delete(new LambdaQueryWrapper<NoteImage>()
                 .eq(NoteImage::getNoteId, noteId));
         noteLikeMapper.delete(new LambdaQueryWrapper<NoteLike>()

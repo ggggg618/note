@@ -1,5 +1,7 @@
 package com.note.admin.service;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.note.admin.dto.AiStatsResponse;
@@ -17,6 +19,7 @@ import com.note.note.entity.Note;
 import com.note.note.mapper.NoteMapper;
 import com.note.user.User;
 import com.note.user.UserMapper;
+import com.note.util.FileStorageService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -39,6 +42,8 @@ public class AdminService {
     private final NoteMapper noteMapper;
     private final CommentMapper commentMapper;
     private final AiLogMapper aiLogMapper;
+    private final FileStorageService fileStorageService;
+    private final ObjectMapper objectMapper;
 
     public PageResult<UserAdminResponse> listUsers(long page, long size, String keyword) {
         checkAdmin();
@@ -142,9 +147,28 @@ public class AdminService {
             }
         }
         for (Long deleteId : deleteIds) {
+            Comment deleting = comments.stream()
+                    .filter(c -> c.getId().equals(deleteId))
+                    .findFirst()
+                    .orElse(null);
+            if (deleting != null) {
+                parseMedia(deleting.getMedia()).forEach(fileStorageService::delete);
+            }
             commentMapper.deleteById(deleteId);
         }
         log.info("管理员删除评论: commentId={}", commentId);
+    }
+
+    private List<String> parseMedia(String media) {
+        if (media == null || media.isBlank()) {
+            return Collections.emptyList();
+        }
+        try {
+            return objectMapper.readValue(media, new TypeReference<List<String>>() {
+            });
+        } catch (Exception e) {
+            return Collections.emptyList();
+        }
     }
 
     public AiStatsResponse aiStats() {

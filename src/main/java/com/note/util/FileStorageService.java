@@ -66,6 +66,20 @@ public class FileStorageService {
         return "/uploads/" + filename;
     }
 
+    public void delete(String url) {
+        if (url == null || !url.startsWith("/uploads/")) {
+            return;
+        }
+        try {
+            Path file = root.resolve(url.substring("/uploads/".length())).normalize();
+            if (file.startsWith(root)) {
+                Files.deleteIfExists(file);
+            }
+        } catch (IOException e) {
+            log.warn("文件删除失败: {}", url, e);
+        }
+    }
+
     private void validateMagic(MultipartFile file, String extension, boolean video) {
         try {
             byte[] head = file.getInputStream().readNBytes(12);

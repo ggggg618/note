@@ -116,6 +116,9 @@ public class UserService {
     public String uploadAvatar(MultipartFile file) {
         User user = requireCurrentUser();
         String url = fileStorageService.store(file);
+        if (user.getAvatar() != null) {
+            fileStorageService.delete(user.getAvatar());
+        }
         user.setAvatar(url);
         userMapper.updateById(user);
         log.info("头像上传成功: userId={}, url={}", user.getId(), url);

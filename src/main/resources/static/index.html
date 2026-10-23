@@ -13,6 +13,7 @@
     <nav class="nav">
         <button data-view="notes">我的笔记</button>
         <button data-view="public">公开笔记</button>
+        <button data-view="rank">热门笔记</button>
         <button data-view="feeds">关注动态</button>
         <button data-view="likes">我的点赞</button>
         <button data-view="authors">热门作者</button>
@@ -43,11 +44,25 @@
             <button id="new-note">新建笔记</button>
         </div>
         <div id="notes-list" class="grid"></div>
+        <button class="more-btn hidden" id="notes-more">加载更多</button>
     </section>
 
     <section id="public-view" class="view hidden">
-        <div class="section-head"><h2>公开笔记</h2></div>
+        <div class="section-head">
+            <h2>公开笔记</h2>
+            <div class="search-row">
+                <input id="public-search" placeholder="搜索标题或正文">
+                <button id="public-search-btn">搜索</button>
+            </div>
+        </div>
         <div id="public-list" class="grid"></div>
+        <button class="more-btn hidden" id="public-more">加载更多</button>
+    </section>
+
+    <section id="rank-view" class="view hidden">
+        <div class="section-head"><h2>热门笔记</h2></div>
+        <div id="rank-list" class="grid"></div>
+        <button class="more-btn hidden" id="rank-more">加载更多</button>
     </section>
 
     <section id="detail-view" class="view hidden">
@@ -95,16 +110,19 @@
     <section id="feeds-view" class="view hidden">
         <div class="section-head"><h2>关注动态</h2></div>
         <div id="feeds-list" class="grid"></div>
+        <button class="more-btn hidden" id="feeds-more">加载更多</button>
     </section>
 
     <section id="likes-view" class="view hidden">
         <div class="section-head"><h2>我的点赞</h2></div>
         <div id="likes-list" class="grid"></div>
+        <button class="more-btn hidden" id="likes-more">加载更多</button>
     </section>
 
     <section id="authors-view" class="view hidden">
         <div class="section-head"><h2>热门作者</h2></div>
         <div id="authors-list" class="grid"></div>
+        <button class="more-btn hidden" id="authors-more">加载更多</button>
     </section>
 
     <section id="chat-view" class="view hidden">
