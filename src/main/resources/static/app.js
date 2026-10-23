@@ -46,10 +46,14 @@ document.querySelectorAll("[data-view]").forEach((btn) => {
 let registerMode = false;
 $("#toggle-auth").addEventListener("click", () => {
     registerMode = !registerMode;
+    renderAuthMode();
+});
+
+function renderAuthMode() {
     $("#auth-title").textContent = registerMode ? "注册" : "登录";
     $("#nickname-field").classList.toggle("hidden", !registerMode);
     $("#toggle-auth").textContent = registerMode ? "已有账号？去登录" : "没有账号？去注册";
-});
+}
 
 $("#auth-form").addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -59,10 +63,18 @@ $("#auth-form").addEventListener("submit", async (e) => {
     const res = await fetch(API + path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
     const body = await res.json();
     if (body.code !== 200) return alert(body.message);
-    if (!registerMode) {
-        localStorage.setItem("token", body.data.token);
-        localStorage.setItem("role", body.data.user.role);
+    if (registerMode) {
+        alert("注册成功，请登录");
+        registerMode = false;
+        renderAuthMode();
+        $("#username").value = "";
+        $("#password").value = "";
+        $("#nickname").value = "";
+        showAuth();
+        return;
     }
+    localStorage.setItem("token", body.data.token);
+    localStorage.setItem("role", body.data.user.role);
     afterAuth();
     showView("notes");
 });

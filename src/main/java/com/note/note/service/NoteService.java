@@ -59,7 +59,8 @@ public class NoteService {
                 .eq(Note::getId, noteId)
                 .set(Note::getTitle, request.getTitle())
                 .set(Note::getContent, request.getContent())
-                .set(Note::getBookName, request.getBookName());
+                .set(Note::getBookName, request.getBookName())
+                .set(Note::getAuditStatus, 0);
         if (request.getVisibility() != null) {
             updateWrapper.set(Note::getVisibility, request.getVisibility());
         }

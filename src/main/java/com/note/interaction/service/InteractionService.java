@@ -198,6 +198,18 @@ public class InteractionService {
     }
 
     public List<CommentResponse> listComments(Long noteId) {
+        Note note = noteMapper.selectById(noteId);
+        if (note == null) {
+            throw new BusinessException("笔记不存在");
+        }
+        boolean publicApproved = Integer.valueOf(1).equals(note.getVisibility())
+                && Integer.valueOf(1).equals(note.getAuditStatus());
+        Long currentUserId = UserContext.id();
+        boolean owner = currentUserId != null && currentUserId.equals(note.getUserId());
+        if (!publicApproved && !owner && !UserContext.isAdmin()) {
+            throw new BusinessException(403, "无权限查看");
+        }
+
         List<Comment> comments = commentMapper.selectList(new LambdaQueryWrapper<Comment>()
                 .eq(Comment::getNoteId, noteId)
                 .orderByAsc(Comment::getCreatedAt)
