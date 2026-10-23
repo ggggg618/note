@@ -11,6 +11,8 @@ public class NoteResponse {
 
     private Long id;
 
+    private Long userId;
+
     private String title;
 
     private String bookName;
