@@ -192,6 +192,7 @@ function showView(name) {
     if (name === "authors") loadHotAuthors();
     if (name === "rank") loadRankedNotes();
     if (name === "chat") loadChat();
+    if (name === "books") loadBooks();
     if (name === "profile") loadProfile();
     if (name === "admin") {
         pageState.adminUsers = 1;
@@ -755,6 +756,41 @@ function authorCard(author) {
     el.appendChild(actions);
     return el;
 }
+
+async function loadBooks() {
+    await ensureCurrentUser();
+    const data = await request("/books?page=1&size=100");
+    const list = $("#books-list");
+    list.innerHTML = "";
+    if (!data.records || data.records.length === 0) {
+        renderEmpty(list, "还没有收藏书目");
+        return;
+    }
+    (data.records || []).forEach((b) => {
+        const row = document.createElement("div");
+        row.className = "row";
+        row.innerHTML = `<span>${escapeHtml(b.bookName)}</span>`;
+        const del = document.createElement("button");
+        del.textContent = "删除";
+        del.onclick = async () => {
+            await request(`/books/${b.id}`, { method: "DELETE" });
+            loadBooks();
+        };
+        row.appendChild(del);
+        list.appendChild(row);
+    });
+}
+
+$("#book-add").addEventListener("click", async () => {
+    const bookName = $("#book-name").value.trim();
+    if (!bookName) return notify("请输入书名");
+    try {
+        await request("/books", { method: "POST", headers: headers(), body: JSON.stringify({ bookName }) });
+        $("#book-name").value = "";
+        notify("已收藏");
+        loadBooks();
+    } catch (e) { notify(e.message); }
+});
 
 async function loadChat() {
     const data = await request("/ai/conversations");
