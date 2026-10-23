@@ -379,13 +379,22 @@ function renderComment(comment, authors, parent) {
     body.textContent = comment.content || "";
     div.append(head, body);
     renderCommentMedia(comment.media, div);
+    const children = comment.children || [];
+    if (children.length > 0) {
+        const childrenWrap = document.createElement("div");
+        childrenWrap.className = "comment-children";
+        children.forEach((child) => renderComment(child, authors, childrenWrap));
+        const foldBtn = document.createElement("button");
+        foldBtn.type = "button";
+        foldBtn.className = "comment-fold";
+        foldBtn.textContent = "收起回复";
+        foldBtn.addEventListener("click", () => {
+            const hidden = childrenWrap.classList.toggle("hidden");
+            foldBtn.textContent = hidden ? "展开回复" : "收起回复";
+        });
+        div.append(foldBtn, childrenWrap);
+    }
     parent.appendChild(div);
-    (comment.children || []).forEach((child) => {
-        const wrap = document.createElement("div");
-        wrap.className = "comment-children";
-        renderComment(child, authors, wrap);
-        div.appendChild(wrap);
-    });
 }
 
 function renderCommentMedia(media, container) {
