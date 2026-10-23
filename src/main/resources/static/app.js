@@ -197,7 +197,7 @@ function noteCard(note) {
     const actions = document.createElement("div");
     actions.className = "note-actions";
     let displayedLikeCount = likeCount;
-    const likeBtn = actionButton(likedNoteIds.has(note.id) ? "取消赞" : "点赞", async () => {
+    const likeBtn = actionButton(likeLabel(likedNoteIds.has(note.id)), async () => {
         try {
             const wasLiked = likedNoteIds.has(note.id);
             if (wasLiked) {
@@ -211,7 +211,7 @@ function noteCard(note) {
                 displayedLikeCount += 1;
                 notify("点赞成功");
             }
-            likeBtn.textContent = likedNoteIds.has(note.id) ? "取消赞" : "点赞";
+            likeBtn.textContent = likeLabel(likedNoteIds.has(note.id));
             el.querySelector(".note-meta").textContent = `赞 ${displayedLikeCount}`;
         } catch (e) { notify(e.message); }
     });
@@ -255,6 +255,10 @@ function actionButton(text, onClick) {
     btn.addEventListener("click", (e) => e.stopPropagation());
     btn.addEventListener("click", onClick);
     return btn;
+}
+
+function likeLabel(liked) {
+    return liked ? "♥ 已赞" : "♡ 点赞";
 }
 
 function showDetail() {
@@ -302,7 +306,7 @@ function renderDetailActions(note) {
     const actions = $("#detail-actions");
     actions.innerHTML = "";
     const isOwn = currentUserId != null && note.userId != null && note.userId === currentUserId;
-    const likeBtn = actionButton(likedNoteIds.has(note.id) ? "取消赞" : "点赞", async () => {
+    const likeBtn = actionButton(likeLabel(likedNoteIds.has(note.id)), async () => {
         try {
             const wasLiked = likedNoteIds.has(note.id);
             if (wasLiked) {
@@ -314,7 +318,7 @@ function renderDetailActions(note) {
                 likedNoteIds.add(note.id);
                 notify("点赞成功");
             }
-            likeBtn.textContent = likedNoteIds.has(note.id) ? "取消赞" : "点赞";
+            likeBtn.textContent = likeLabel(likedNoteIds.has(note.id));
             loadNoteDetail();
         } catch (e) { notify(e.message); }
     });
