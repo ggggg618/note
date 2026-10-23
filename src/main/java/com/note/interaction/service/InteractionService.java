@@ -118,7 +118,7 @@ public class InteractionService {
         List<NoteResponse> records = likePage.getRecords().stream()
                 .map(like -> noteMap.get(like.getNoteId()))
                 .filter(Objects::nonNull)
-                .map(note -> new NoteResponse(note.getId(), note.getUserId(), note.getTitle(), note.getBookName(), note.getContent(),
+                .map(note -> new NoteResponse(note.getId(), note.getUserId(), note.getTitle(), note.getBookName(), note.getContent(), note.getVisibility(),
                         likeCount(note)))
                 .collect(Collectors.toList());
 
@@ -147,7 +147,7 @@ public class InteractionService {
                         .orderByDesc(Note::getId));
 
         List<NoteResponse> records = notePage.getRecords().stream()
-                .map(note -> new NoteResponse(note.getId(), note.getUserId(), note.getTitle(), note.getBookName(), note.getContent(),
+                .map(note -> new NoteResponse(note.getId(), note.getUserId(), note.getTitle(), note.getBookName(), note.getContent(), note.getVisibility(),
                         likeCount(note)))
                 .collect(Collectors.toList());
 

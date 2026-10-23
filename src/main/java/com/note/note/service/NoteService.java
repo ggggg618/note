@@ -220,6 +220,38 @@ public class NoteService {
         return urls;
     }
 
+    @Transactional
+    public void deleteImage(Long userId, Long imageId) {
+        requireUser(userId);
+        NoteImage image = noteImageMapper.selectById(imageId);
+        if (image == null) {
+            throw new BusinessException("图片不存在");
+        }
+        Note note = getExistingNote(image.getNoteId());
+        if (!note.getUserId().equals(userId) && !UserContext.isAdmin()) {
+            throw new BusinessException("无权限操作");
+        }
+        fileStorageService.delete(image.getUrl());
+        noteImageMapper.deleteById(imageId);
+    }
+
+    @Transactional
+    public void deleteImageByUrl(Long userId, Long noteId, String url) {
+        requireUser(userId);
+        Note note = getExistingNote(noteId);
+        if (!note.getUserId().equals(userId) && !UserContext.isAdmin()) {
+            throw new BusinessException("无权限操作");
+        }
+        NoteImage image = noteImageMapper.selectOne(new LambdaQueryWrapper<NoteImage>()
+                .eq(NoteImage::getNoteId, noteId)
+                .eq(NoteImage::getUrl, url));
+        if (image == null) {
+            throw new BusinessException("图片不存在");
+        }
+        fileStorageService.delete(image.getUrl());
+        noteImageMapper.deleteById(image.getId());
+    }
+
     private NoteResponse buildResponse(Note note) {
         List<String> images = listImages(note.getId());
         String aiResult = null;

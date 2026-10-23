@@ -77,4 +77,16 @@ public class NoteController {
             @RequestParam("files") MultipartFile[] files) {
         return Result.ok(noteService.uploadImages(UserContext.id(), id, files));
     }
+
+    @DeleteMapping("/images/{imageId}")
+    public Result<Void> deleteImage(@PathVariable Long imageId) {
+        noteService.deleteImage(UserContext.id(), imageId);
+        return Result.ok();
+    }
+
+    @DeleteMapping("/{id}/images")
+    public Result<Void> deleteImageByUrl(@PathVariable Long id, @RequestParam String url) {
+        noteService.deleteImageByUrl(UserContext.id(), id, url);
+        return Result.ok();
+    }
 }

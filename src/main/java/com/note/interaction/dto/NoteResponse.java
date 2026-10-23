@@ -19,5 +19,7 @@ public class NoteResponse {
 
     private String content;
 
+    private Integer visibility;
+
     private Long likeCount;
 }

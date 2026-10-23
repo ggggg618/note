@@ -147,7 +147,11 @@ function showView(name) {
     if (name === "rank") loadRankedNotes();
     if (name === "chat") loadChat();
     if (name === "profile") loadProfile();
-    if (name === "admin") loadAdmin();
+    if (name === "admin") {
+        pageState.adminUsers = 1;
+        pageState.adminNotes = 1;
+        loadAdmin();
+    }
 }
 
 function showAuth() {
@@ -168,7 +172,7 @@ let replyToCommentId = null;
 let editingNoteId = null;
 let likedNoteIds = new Set();
 const PAGE_SIZE = 10;
-const pageState = { notes: 1, public: 1, feeds: 1, likes: 1, authors: 1, rank: 1 };
+const pageState = { notes: 1, public: 1, feeds: 1, likes: 1, authors: 1, rank: 1, adminUsers: 1, adminNotes: 1 };
 $("#toggle-auth").addEventListener("click", () => {
     registerMode = !registerMode;
     renderAuthMode();
@@ -735,7 +739,8 @@ async function loadMessages() {
         const content = message.content || "";
         const item = document.createElement("div");
         item.className = `chat-message ${role === "user" ? "user" : "assistant"}`;
-        item.innerHTML = `<div class="chat-role">${escapeHtml(message.role || "assistant")}</div><div class="chat-content">${escapeHtml(content)}</div>`;
+        const roleLabel = role === "user" ? "用户" : "助手";
+        item.innerHTML = `<div class="chat-role">${roleLabel}</div><div class="chat-content">${escapeHtml(content)}</div>`;
         $("#chat-messages").appendChild(item);
     });
     $("#chat-messages").scrollTop = $("#chat-messages").scrollHeight;
@@ -750,7 +755,32 @@ function openEditor(note) {
     $("#note-content").value = note ? (note.content || "") : "";
     $("#note-visibility").value = note && note.visibility != null ? note.visibility : 0;
     $("#note-images").value = "";
+    renderEditorImages(note ? (note.images || []) : []);
     showView("editor");
+}
+
+function renderEditorImages(images) {
+    const box = $("#editor-images");
+    box.innerHTML = "";
+    images.forEach((url) => {
+        const wrap = document.createElement("div");
+        wrap.className = "editor-image";
+        const img = document.createElement("img");
+        img.src = url;
+        img.alt = "配图";
+        const del = document.createElement("button");
+        del.type = "button";
+        del.textContent = "删除";
+        del.addEventListener("click", async () => {
+            try {
+                await request(`/notes/${editingNoteId}/images?url=${encodeURIComponent(url)}`, { method: "DELETE" });
+                wrap.remove();
+                notify("已删除");
+            } catch (e) { notify(e.message); }
+        });
+        wrap.append(img, del);
+        box.appendChild(wrap);
+    });
 }
 
 $("#new-note").addEventListener("click", () => openEditor(null));
@@ -780,8 +810,10 @@ async function loadAdmin() {
     $("#ai-total").textContent = stats.totalCalls;
     $("#ai-success").textContent = stats.successCalls;
     $("#ai-failed").textContent = stats.failedCalls;
-    const users = await request("/admin/users?page=1&size=50");
-    $("#admin-users").innerHTML = "";
+
+    const userPage = pageState.adminUsers;
+    const users = await request(`/admin/users?page=${userPage}&size=${PAGE_SIZE}`);
+    if (userPage === 1) $("#admin-users").innerHTML = "";
     (users.records || []).forEach((u) => {
         const row = document.createElement("div");
         row.className = "row";
@@ -795,22 +827,51 @@ async function loadAdmin() {
         row.appendChild(btn);
         $("#admin-users").appendChild(row);
     });
-    const notes = await request("/admin/notes?page=1&size=50");
-    $("#admin-notes").innerHTML = "";
+    $("#admin-users-more").classList.toggle("hidden", (users.records || []).length < PAGE_SIZE);
+
+    const notePage = pageState.adminNotes;
+    const notes = await request(`/admin/notes?page=${notePage}&size=${PAGE_SIZE}`);
+    if (notePage === 1) $("#admin-notes").innerHTML = "";
     (notes.records || []).forEach((n) => {
         const row = document.createElement("div");
         row.className = "row";
-        row.innerHTML = `<span>${escapeHtml(n.title)} · 审核:${n.auditStatus}</span>`;
-        const btn = document.createElement("button");
-        btn.textContent = n.auditStatus === 1 ? "下架" : "通过";
-        btn.onclick = async () => {
-            if (n.auditStatus === 1) await request(`/admin/notes/${n.id}/offline`, { method: "PUT", headers: headers() });
-            else await request(`/admin/notes/${n.id}/audit`, { method: "PUT", headers: headers(), body: JSON.stringify({ auditStatus: 1 }) });
-            loadAdmin();
-        };
-        row.appendChild(btn);
+        row.innerHTML = `<span>${escapeHtml(n.title)} · ${auditLabel(n.auditStatus)}</span>`;
+        const actions = document.createElement("span");
+        actions.className = "row-actions";
+        if (n.auditStatus !== 1) {
+            const pass = document.createElement("button");
+            pass.textContent = "通过";
+            pass.onclick = async () => {
+                await request(`/admin/notes/${n.id}/audit`, { method: "PUT", headers: headers(), body: JSON.stringify({ auditStatus: 1 }) });
+                loadAdmin();
+            };
+            actions.appendChild(pass);
+            const reject = document.createElement("button");
+            reject.textContent = "拒绝";
+            reject.onclick = async () => {
+                await request(`/admin/notes/${n.id}/audit`, { method: "PUT", headers: headers(), body: JSON.stringify({ auditStatus: 2 }) });
+                loadAdmin();
+            };
+            actions.appendChild(reject);
+        } else {
+            const offline = document.createElement("button");
+            offline.textContent = "下架";
+            offline.onclick = async () => {
+                await request(`/admin/notes/${n.id}/offline`, { method: "PUT", headers: headers() });
+                loadAdmin();
+            };
+            actions.appendChild(offline);
+        }
+        row.appendChild(actions);
         $("#admin-notes").appendChild(row);
     });
+    $("#admin-notes-more").classList.toggle("hidden", (notes.records || []).length < PAGE_SIZE);
+}
+
+function auditLabel(status) {
+    if (status === 1) return "已通过";
+    if (status === 2) return "已拒绝";
+    return "待审核";
 }
 
 async function loadProfile() {
@@ -871,6 +932,14 @@ bindMore("rank", "#rank-more", loadRankedNotes);
 bindMore("feeds", "#feeds-more", loadFeeds);
 bindMore("likes", "#likes-more", loadMyLikes);
 bindMore("authors", "#authors-more", loadHotAuthors);
+$("#admin-users-more").addEventListener("click", () => {
+    pageState.adminUsers++;
+    loadAdmin();
+});
+$("#admin-notes-more").addEventListener("click", () => {
+    pageState.adminNotes++;
+    loadAdmin();
+});
 
 $("#new-chat").addEventListener("click", async () => {
     try {
