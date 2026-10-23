@@ -12,7 +12,7 @@ class JwtUtilTest {
     @Test
     void generatesAndParsesToken() {
         JwtUtil jwtUtil = new JwtUtil("0123456789abcdef0123456789abcdef", 1);
-        String token = jwtUtil.generate(1L, "alice", "USER");
+        String token = jwtUtil.generate(1L, "alice", "USER", 0);
         Claims claims = jwtUtil.parse(token);
         assertEquals("alice", claims.getSubject());
         assertEquals(1L, claims.get("userId", Number.class).longValue());

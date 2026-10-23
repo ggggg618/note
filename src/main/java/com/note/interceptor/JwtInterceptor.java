@@ -47,6 +47,11 @@ public class JwtInterceptor implements HandlerInterceptor {
                 writeUnauthorized(response);
                 return false;
             }
+            int tokenVersion = claims.get("ver", Integer.class);
+            if (user.getTokenVersion() != null && user.getTokenVersion() != tokenVersion) {
+                writeUnauthorized(response);
+                return false;
+            }
             UserContext.set(new AuthUser(id, claims.getSubject(), role));
             return true;
         } catch (Exception e) {

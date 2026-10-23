@@ -52,6 +52,7 @@ public class UserService {
         user.setNickname(request.getNickname());
         user.setRole("USER");
         user.setStatus(1);
+        user.setTokenVersion(0);
         userMapper.insert(user);
         log.info("用户注册成功: username={}", user.getUsername());
 
@@ -79,7 +80,7 @@ public class UserService {
 
         LOGIN_FAILURES.remove(request.getUsername());
         log.info("用户登录成功: userId={}, username={}", user.getId(), user.getUsername());
-        String token = jwtUtil.generate(user.getId(), user.getUsername(), user.getRole());
+        String token = jwtUtil.generate(user.getId(), user.getUsername(), user.getRole(), user.getTokenVersion());
         return new LoginResponse(token, toUserResponse(user));
     }
 
@@ -132,6 +133,7 @@ public class UserService {
             throw new BusinessException("原密码错误");
         }
         user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+        user.setTokenVersion(user.getTokenVersion() == null ? 1 : user.getTokenVersion() + 1);
         userMapper.updateById(user);
         log.info("用户修改密码: userId={}", user.getId());
     }

@@ -29,6 +29,7 @@ public class DataInitializer implements CommandLineRunner {
             admin.setNickname("管理员");
             admin.setRole("ADMIN");
             admin.setStatus(1);
+            admin.setTokenVersion(0);
             userMapper.insert(admin);
         }
     }
