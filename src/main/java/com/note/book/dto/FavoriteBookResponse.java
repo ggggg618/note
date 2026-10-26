@@ -15,5 +15,13 @@ public class FavoriteBookResponse {
 
     private String bookName;
 
+    private String author;
+
+    private String publisher;
+
+    private String isbn;
+
+    private String description;
+
     private LocalDateTime createdAt;
 }

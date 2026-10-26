@@ -193,10 +193,6 @@ function showView(name) {
     if (name === "rank") loadRankedNotes();
     if (name === "chat") loadChat();
     if (name === "books") loadBooks();
-    if (name === "library") {
-        pageState.library = 1;
-        loadLibrary();
-    }
     if (name === "profile") loadProfile();
     if (name === "admin") {
         pageState.adminUsers = 1;
@@ -224,7 +220,7 @@ let editingNoteId = null;
 let likedNoteIds = new Set();
 let followingIds = new Set();
 const PAGE_SIZE = 10;
-const pageState = { notes: 1, public: 1, feeds: 1, likes: 1, authors: 1, rank: 1, adminUsers: 1, adminNotes: 1, library: 1 };
+const pageState = { notes: 1, public: 1, feeds: 1, likes: 1, authors: 1, rank: 1, adminUsers: 1, adminNotes: 1 };
 $("#toggle-auth").addEventListener("click", () => {
     registerMode = !registerMode;
     renderAuthMode();
@@ -771,13 +767,13 @@ async function loadBooks() {
     const list = $("#books-list");
     list.innerHTML = "";
     if (!data.records || data.records.length === 0) {
-        renderEmpty(list, "还没有收藏书目");
+        renderEmpty(list, "图书库还是空的");
         return;
     }
     (data.records || []).forEach((b) => {
         const row = document.createElement("div");
         row.className = "row";
-        row.innerHTML = `<span>${escapeHtml(b.bookName)}</span>`;
+        row.innerHTML = `<span><b>${escapeHtml(b.bookName)}</b> · ${escapeHtml(b.author || "")} · ${escapeHtml(b.publisher || "")}</span>`;
         const del = document.createElement("button");
         del.textContent = "删除";
         del.onclick = async () => {
@@ -789,65 +785,20 @@ async function loadBooks() {
     });
 }
 
-$("#book-add").addEventListener("click", async () => {
-    const bookName = $("#book-name").value.trim();
-    if (!bookName) return notify("请输入书名");
-    try {
-        await request("/books", { method: "POST", headers: headers(), body: JSON.stringify({ bookName }) });
-        $("#book-name").value = "";
-        notify("已收藏");
-        loadBooks();
-    } catch (e) { notify(e.message); }
-});
-
-async function loadLibrary() {
-    const data = await request(`/library/books?page=${pageState.library}&size=${PAGE_SIZE}`);
-    const list = $("#library-list");
-    if (pageState.library === 1) list.innerHTML = "";
-    if (!data.records || data.records.length === 0) {
-        if (pageState.library === 1) renderEmpty(list, "图书库还是空的");
-        $("#library-more").classList.add("hidden");
-        return;
-    }
-    (data.records || []).forEach((b) => {
-        const row = document.createElement("div");
-        row.className = "row";
-        row.innerHTML = `<span><b>${escapeHtml(b.title)}</b> · ${escapeHtml(b.author || "")} · ${escapeHtml(b.publisher || "")}</span>`;
-        const actions = document.createElement("span");
-        actions.className = "row-actions";
-        const del = document.createElement("button");
-        del.textContent = "删除";
-        del.onclick = async () => {
-            await request(`/library/books/${b.id}`, { method: "DELETE" });
-            loadLibrary();
-        };
-        actions.appendChild(del);
-        row.appendChild(actions);
-        list.appendChild(row);
-    });
-    $("#library-more").classList.toggle("hidden", data.records.length < PAGE_SIZE);
-}
-
-$("#library-more").addEventListener("click", () => {
-    pageState.library++;
-    loadLibrary();
-});
-
 $("#book-form").addEventListener("submit", async (e) => {
     e.preventDefault();
     const payload = {
-        title: $("#book-title").value.trim(),
+        bookName: $("#book-name").value.trim(),
         author: $("#book-author").value.trim(),
         publisher: $("#book-publisher").value.trim(),
         isbn: $("#book-isbn").value.trim(),
         description: $("#book-description").value.trim()
     };
     try {
-        await request("/library/books", { method: "POST", headers: headers(), body: JSON.stringify(payload) });
+        await request("/books", { method: "POST", headers: headers(), body: JSON.stringify(payload) });
         $("#book-form").reset();
-        notify("图书已保存");
-        pageState.library = 1;
-        loadLibrary();
+        notify("已收藏");
+        loadBooks();
     } catch (e) { notify(e.message); }
 });
 

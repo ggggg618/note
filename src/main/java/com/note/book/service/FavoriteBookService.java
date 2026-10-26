@@ -29,13 +29,17 @@ public class FavoriteBookService {
         FavoriteBook book = new FavoriteBook();
         book.setUserId(userId);
         book.setBookName(request.getBookName());
+        book.setAuthor(request.getAuthor());
+        book.setPublisher(request.getPublisher());
+        book.setIsbn(request.getIsbn());
+        book.setDescription(request.getDescription());
         book.setCreatedAt(LocalDateTime.now());
         try {
             favoriteBookMapper.insert(book);
         } catch (DuplicateKeyException e) {
             throw new BusinessException("该书已收藏");
         }
-        return new FavoriteBookResponse(book.getId(), book.getBookName(), book.getCreatedAt());
+        return toResponse(book);
     }
 
     public PageResult<FavoriteBookResponse> list(Long userId, long page, long size) {
@@ -48,7 +52,7 @@ public class FavoriteBookService {
                         .eq(FavoriteBook::getUserId, userId)
                         .orderByDesc(FavoriteBook::getCreatedAt));
         List<FavoriteBookResponse> records = result.getRecords().stream()
-                .map(b -> new FavoriteBookResponse(b.getId(), b.getBookName(), b.getCreatedAt()))
+                .map(this::toResponse)
                 .toList();
         return new PageResult<>(result.getTotal(), page, size, records);
     }
@@ -59,5 +63,10 @@ public class FavoriteBookService {
             throw new BusinessException("无权限删除");
         }
         favoriteBookMapper.deleteById(id);
+    }
+
+    private FavoriteBookResponse toResponse(FavoriteBook book) {
+        return new FavoriteBookResponse(book.getId(), book.getBookName(), book.getAuthor(),
+                book.getPublisher(), book.getIsbn(), book.getDescription(), book.getCreatedAt());
     }
 }
