@@ -24,4 +24,9 @@ class JwtUtilTest {
         JwtUtil jwtUtil = new JwtUtil("0123456789abcdef0123456789abcdef", 1);
         assertThrows(BusinessException.class, () -> jwtUtil.parse("not-a-token"));
     }
+
+    @Test
+    void rejectsShortSecret() {
+        assertThrows(IllegalStateException.class, () -> new JwtUtil("short", 1));
+    }
 }
