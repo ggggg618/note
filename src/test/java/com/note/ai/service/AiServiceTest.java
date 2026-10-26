@@ -1,6 +1,7 @@
 package com.note.ai.service;
 
 import com.note.admin.mapper.AiLogMapper;
+import com.note.admin.entity.AiLog;
 import com.note.ai.dto.SaveAiRequest;
 import com.note.ai.entity.NoteAi;
 import com.note.ai.mapper.ConversationMapper;
@@ -13,8 +14,11 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.ArgumentCaptor;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -50,6 +54,22 @@ class AiServiceTest {
         aiService.saveResult(1L, saveRequest("RECOMMEND", "推荐"));
 
         verify(noteAiMapper, times(2)).insert(any(NoteAi.class));
+    }
+
+    @Test
+    void redactsPrivateNoteResponseInAiLog() {
+        Note note = new Note();
+        note.setId(1L);
+        note.setUserId(1L);
+        note.setVisibility(0);
+        when(noteMapper.selectById(1L)).thenReturn(note);
+        when(aiClient.chat(any(), any())).thenReturn("包含私有内容的总结");
+
+        aiService.generateSummary(1L, 1L);
+
+        ArgumentCaptor<AiLog> captor = ArgumentCaptor.forClass(AiLog.class);
+        verify(aiLogMapper, atLeastOnce()).insert(captor.capture());
+        assertEquals("[私有笔记内容已省略]", captor.getValue().getResponse());
     }
 
     private SaveAiRequest saveRequest(String type, String content) {

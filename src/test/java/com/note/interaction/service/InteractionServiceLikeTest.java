@@ -4,6 +4,7 @@ import com.note.common.PageResult;
 import com.note.interaction.dto.NoteResponse;
 import com.note.interaction.entity.NoteLike;
 import com.note.interaction.mapper.NoteLikeMapper;
+import com.note.common.BusinessException;
 import com.note.note.entity.Note;
 import com.note.note.mapper.NoteMapper;
 import com.note.user.User;
@@ -16,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 @SpringBootTest
 @Transactional
@@ -65,5 +67,19 @@ class InteractionServiceLikeTest {
 
         PageResult<NoteResponse> after = interactionService.listMyLikes(user.getId(), 1, 10);
         assertEquals(0, after.getTotal());
+    }
+
+    @Test
+    void rejectsFollowOfMissingUser() {
+        User user = new User();
+        user.setUsername("follow_test_user");
+        user.setPassword("x");
+        user.setNickname("x");
+        user.setRole("USER");
+        user.setStatus(1);
+        user.setTokenVersion(0);
+        userMapper.insert(user);
+
+        assertThrows(BusinessException.class, () -> interactionService.follow(user.getId(), 999999L));
     }
 }

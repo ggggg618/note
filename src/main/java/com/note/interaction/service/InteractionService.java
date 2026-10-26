@@ -144,6 +144,9 @@ public class InteractionService {
         if (userId.equals(targetId)) {
             throw new BusinessException("不能关注自己");
         }
+        if (userMapper.selectById(targetId) == null) {
+            throw new BusinessException("用户不存在");
+        }
         Long count = followMapper.selectCount(new LambdaQueryWrapper<Follow>()
                 .eq(Follow::getFollowerId, userId)
                 .eq(Follow::getFolloweeId, targetId));

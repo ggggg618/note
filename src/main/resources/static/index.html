@@ -19,6 +19,7 @@
         <button data-view="authors">热门作者</button>
         <button data-view="chat">AI 客服</button>
         <button data-view="books">收藏书目</button>
+        <button data-view="library">图书库</button>
         <button data-view="profile">个人资料</button>
         <button data-view="admin" class="admin-only hidden">管理后台</button>
         <button id="logout" class="hidden">退出</button>
@@ -135,6 +136,20 @@
             </div>
         </div>
         <div id="books-list" class="table"></div>
+    </section>
+
+    <section id="library-view" class="view hidden">
+        <div class="section-head"><h2>图书库</h2></div>
+        <form id="book-form" class="book-form">
+            <input id="book-title" placeholder="书名" required>
+            <input id="book-author" placeholder="作者">
+            <input id="book-publisher" placeholder="出版社">
+            <input id="book-isbn" placeholder="ISBN">
+            <textarea id="book-description" placeholder="简介" rows="3"></textarea>
+            <button type="submit">保存图书</button>
+        </form>
+        <div id="library-list" class="table"></div>
+        <button class="more-btn hidden" id="library-more">加载更多</button>
     </section>
 
     <section id="chat-view" class="view hidden">

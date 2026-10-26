@@ -193,6 +193,10 @@ function showView(name) {
     if (name === "rank") loadRankedNotes();
     if (name === "chat") loadChat();
     if (name === "books") loadBooks();
+    if (name === "library") {
+        pageState.library = 1;
+        loadLibrary();
+    }
     if (name === "profile") loadProfile();
     if (name === "admin") {
         pageState.adminUsers = 1;
@@ -220,7 +224,7 @@ let editingNoteId = null;
 let likedNoteIds = new Set();
 let followingIds = new Set();
 const PAGE_SIZE = 10;
-const pageState = { notes: 1, public: 1, feeds: 1, likes: 1, authors: 1, rank: 1, adminUsers: 1, adminNotes: 1 };
+const pageState = { notes: 1, public: 1, feeds: 1, likes: 1, authors: 1, rank: 1, adminUsers: 1, adminNotes: 1, library: 1 };
 $("#toggle-auth").addEventListener("click", () => {
     registerMode = !registerMode;
     renderAuthMode();
@@ -796,6 +800,57 @@ $("#book-add").addEventListener("click", async () => {
     } catch (e) { notify(e.message); }
 });
 
+async function loadLibrary() {
+    const data = await request(`/library/books?page=${pageState.library}&size=${PAGE_SIZE}`);
+    const list = $("#library-list");
+    if (pageState.library === 1) list.innerHTML = "";
+    if (!data.records || data.records.length === 0) {
+        if (pageState.library === 1) renderEmpty(list, "图书库还是空的");
+        $("#library-more").classList.add("hidden");
+        return;
+    }
+    (data.records || []).forEach((b) => {
+        const row = document.createElement("div");
+        row.className = "row";
+        row.innerHTML = `<span><b>${escapeHtml(b.title)}</b> · ${escapeHtml(b.author || "")} · ${escapeHtml(b.publisher || "")}</span>`;
+        const actions = document.createElement("span");
+        actions.className = "row-actions";
+        const del = document.createElement("button");
+        del.textContent = "删除";
+        del.onclick = async () => {
+            await request(`/library/books/${b.id}`, { method: "DELETE" });
+            loadLibrary();
+        };
+        actions.appendChild(del);
+        row.appendChild(actions);
+        list.appendChild(row);
+    });
+    $("#library-more").classList.toggle("hidden", data.records.length < PAGE_SIZE);
+}
+
+$("#library-more").addEventListener("click", () => {
+    pageState.library++;
+    loadLibrary();
+});
+
+$("#book-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const payload = {
+        title: $("#book-title").value.trim(),
+        author: $("#book-author").value.trim(),
+        publisher: $("#book-publisher").value.trim(),
+        isbn: $("#book-isbn").value.trim(),
+        description: $("#book-description").value.trim()
+    };
+    try {
+        await request("/library/books", { method: "POST", headers: headers(), body: JSON.stringify(payload) });
+        $("#book-form").reset();
+        notify("图书已保存");
+        pageState.library = 1;
+        loadLibrary();
+    } catch (e) { notify(e.message); }
+});
+
 async function loadChat() {
     const data = await request("/ai/conversations");
     const conversations = Array.isArray(data) ? data : (data.records || []);
@@ -907,22 +962,28 @@ $("#new-note").addEventListener("click", () => openEditor(null));
 $("#cancel-editor").addEventListener("click", () => showView("notes"));
 $("#note-form").addEventListener("submit", async (e) => {
     e.preventDefault();
-    const payload = {
-        title: $("#note-title").value,
-        content: $("#note-content").value,
-        bookName: $("#note-book").value,
-        visibility: Number($("#note-visibility").value)
-    };
-    const path = editingNoteId ? `/notes/${editingNoteId}` : "/notes";
-    const data = await request(path, { method: editingNoteId ? "PUT" : "POST", headers: headers(), body: JSON.stringify(payload) });
-    const files = $("#note-images").files;
-    if (files.length) {
-        const fd = new FormData();
-        for (const f of files) fd.append("files", f);
-        await fetch(API + "/notes/" + data.id + "/images", { method: "POST", headers: authHeaders(), body: fd });
+    try {
+        const payload = {
+            title: $("#note-title").value,
+            content: $("#note-content").value,
+            bookName: $("#note-book").value,
+            visibility: Number($("#note-visibility").value)
+        };
+        const path = editingNoteId ? `/notes/${editingNoteId}` : "/notes";
+        const data = await request(path, { method: editingNoteId ? "PUT" : "POST", headers: headers(), body: JSON.stringify(payload) });
+        const files = $("#note-images").files;
+        if (files.length) {
+            const fd = new FormData();
+            for (const f of files) fd.append("files", f);
+            const uploadRes = await fetch(API + "/notes/" + data.id + "/images", { method: "POST", headers: authHeaders(), body: fd });
+            const uploadBody = await uploadRes.json();
+            if (uploadBody.code !== 200) throw new Error(uploadBody.message || "配图上传失败");
+        }
+        editingNoteId = null;
+        showView("notes");
+    } catch (error) {
+        notify(error.message);
     }
-    editingNoteId = null;
-    showView("notes");
 });
 
 async function loadAdmin() {

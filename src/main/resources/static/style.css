@@ -58,6 +58,7 @@ button.primary, button[type="submit"] { background: var(--accent); color: #fff; 
 .empty { color: var(--muted); padding: 24px; text-align: center; }
 .search-row { display: flex; gap: 6px; }
 .search-row input { padding: 7px 9px; border: 1px solid var(--line); border-radius: 6px; }
+.book-form { display: flex; flex-direction: column; gap: 8px; max-width: 420px; margin-bottom: 20px; }
 .more-btn { display: block; margin: 16px auto 0; }
 .reply-hint { font-size: 13px; color: var(--accent); }
 .reply-hint button { margin-left: 8px; padding: 2px 8px; }

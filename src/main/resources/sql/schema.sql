@@ -31,6 +31,7 @@ DROP TABLE IF EXISTS `note_ai`;
 DROP TABLE IF EXISTS `ai_log`;
 DROP TABLE IF EXISTS `comment`;
 DROP TABLE IF EXISTS `favorite_book`;
+DROP TABLE IF EXISTS `book`;
 DROP TABLE IF EXISTS `follow`;
 DROP TABLE IF EXISTS `note_like`;
 DROP TABLE IF EXISTS `note_image`;
@@ -101,6 +102,17 @@ CREATE TABLE `follow` (
     UNIQUE KEY `uk_follow_follower_followee` (`follower_id`, `followee_id`),
     KEY `idx_follow_followee_id` (`followee_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户关注表';
+
+CREATE TABLE `book` (
+    `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '图书主键',
+    `title` VARCHAR(100) NOT NULL COMMENT '书名',
+    `author` VARCHAR(100) NULL COMMENT '作者',
+    `publisher` VARCHAR(100) NULL COMMENT '出版社',
+    `isbn` VARCHAR(50) NULL COMMENT 'ISBN',
+    `description` VARCHAR(2000) NULL COMMENT '简介',
+    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='图书信息表';
 
 CREATE TABLE `favorite_book` (
     `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '收藏书目主键',

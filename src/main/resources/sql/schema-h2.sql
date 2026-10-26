@@ -51,6 +51,16 @@ CREATE TABLE IF NOT EXISTS follow (
     CONSTRAINT uk_follow UNIQUE (follower_id, followee_id)
 );
 
+CREATE TABLE IF NOT EXISTS book (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    title VARCHAR(100) NOT NULL,
+    author VARCHAR(100),
+    publisher VARCHAR(100),
+    isbn VARCHAR(50),
+    description VARCHAR(2000),
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE TABLE IF NOT EXISTS favorite_book (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     user_id BIGINT NOT NULL,

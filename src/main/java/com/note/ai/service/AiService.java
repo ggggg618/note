@@ -220,7 +220,8 @@ public class AiService {
         String logType = aiClient.isConfigured() ? type : type + "_MOCK";
         try {
             String response = aiClient.chat(systemPrompt, userPrompt);
-            recordAiLog(userId, logType, logPrompt, response, 1);
+            recordAiLog(userId, logType, logPrompt,
+                    sensitive ? "[私有笔记内容已省略]" : response, 1);
             return response;
         } catch (BusinessException ex) {
             recordAiLog(userId, logType, logPrompt, ex.getMessage(), 0);

@@ -63,6 +63,7 @@ public class FileController {
         if (lower.endsWith(".mp4")) return MediaType.parseMediaType("video/mp4");
         if (lower.endsWith(".webm")) return MediaType.parseMediaType("video/webm");
         if (lower.endsWith(".mov")) return MediaType.parseMediaType("video/quicktime");
+        if (lower.endsWith(".m4v")) return MediaType.parseMediaType("video/mp4");
         return MediaType.APPLICATION_OCTET_STREAM;
     }
 }

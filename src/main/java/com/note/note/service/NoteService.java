@@ -52,12 +52,14 @@ public class NoteService {
     @Transactional
     public NoteResponse createNote(Long userId, NoteRequest request) {
         requireUser(userId);
+        int visibility = request.getVisibility() == null ? 0 : request.getVisibility();
+        validateVisibility(visibility);
         Note note = new Note();
         note.setUserId(userId);
         note.setTitle(request.getTitle());
         note.setContent(request.getContent());
         note.setBookName(request.getBookName());
-        note.setVisibility(request.getVisibility() == null ? 0 : request.getVisibility());
+        note.setVisibility(visibility);
         note.setAuditStatus(0);
         note.setLikeCount(0);
         noteMapper.insert(note);
@@ -72,13 +74,16 @@ public class NoteService {
         if (!note.getUserId().equals(userId)) {
             throw new BusinessException("无权限操作");
         }
+        if (request.getVisibility() != null) {
+            validateVisibility(request.getVisibility());
+        }
         LambdaUpdateWrapper<Note> updateWrapper = new LambdaUpdateWrapper<Note>()
                 .eq(Note::getId, noteId)
                 .set(Note::getTitle, request.getTitle())
                 .set(Note::getContent, request.getContent())
                 .set(Note::getBookName, request.getBookName());
         boolean becomesPublic = request.getVisibility() != null
-                ? request.getVisibility() == 1
+                ? Integer.valueOf(1).equals(request.getVisibility())
                 : Integer.valueOf(1).equals(note.getVisibility());
         boolean contentChanged = !Objects.equals(request.getTitle(), note.getTitle())
                 || !Objects.equals(request.getContent(), note.getContent())
@@ -350,6 +355,12 @@ public class NoteService {
     private void requireUser(Long userId) {
         if (userId == null) {
             throw new BusinessException("未登录");
+        }
+    }
+
+    private void validateVisibility(int visibility) {
+        if (visibility != 0 && visibility != 1) {
+            throw new BusinessException("可见性只能为0或1");
         }
     }
 }
