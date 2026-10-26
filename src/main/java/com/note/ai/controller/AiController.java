@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
@@ -50,8 +51,9 @@ public class AiController {
     }
 
     @GetMapping("/result/{noteId}")
-    public Result<AiResponse> getResult(@PathVariable Long noteId) {
-        NoteAi result = aiService.getResult(UserContext.id(), noteId);
+    public Result<AiResponse> getResult(@PathVariable Long noteId,
+                                        @RequestParam(defaultValue = "SUMMARY") String type) {
+        NoteAi result = aiService.getResult(UserContext.id(), noteId, type);
         return Result.ok(result == null ? null : new AiResponse(result.getType(), result.getContent()));
     }
 

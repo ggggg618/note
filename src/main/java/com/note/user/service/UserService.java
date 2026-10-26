@@ -61,24 +61,25 @@ public class UserService {
 
     public LoginResponse login(LoginRequest request) {
         long now = System.currentTimeMillis();
-        long[] failure = LOGIN_FAILURES.get(request.getUsername());
+        String username = request.getUsername().trim();
+        long[] failure = LOGIN_FAILURES.get(username);
         if (failure != null && failure[1] > now && failure[0] >= MAX_LOGIN_ATTEMPTS) {
             throw new BusinessException(429, "尝试次数过多，请15分钟后再试");
         }
         User user = userMapper.selectOne(
-                new LambdaQueryWrapper<User>().eq(User::getUsername, request.getUsername().trim())
+                new LambdaQueryWrapper<User>().eq(User::getUsername, username)
         );
         if (user == null || !passwordEncoder.matches(request.getPassword(), user.getPassword())) {
-            recordLoginFailure(request.getUsername(), now);
-            log.warn("用户登录失败: username={}", request.getUsername());
+            recordLoginFailure(username, now);
+            log.warn("用户登录失败: username={}", username);
             throw new BusinessException("用户名或密码错误");
         }
         if (user.getStatus() == null || user.getStatus() != 1) {
-            log.warn("禁用账号尝试登录: username={}", request.getUsername());
+            log.warn("禁用账号尝试登录: username={}", username);
             throw new BusinessException("账号已被禁用");
         }
 
-        LOGIN_FAILURES.remove(request.getUsername());
+        LOGIN_FAILURES.remove(username);
         log.info("用户登录成功: userId={}, username={}", user.getId(), user.getUsername());
         String token = jwtUtil.generate(user.getId(), user.getUsername(), user.getRole(), user.getTokenVersion());
         return new LoginResponse(token, toUserResponse(user));

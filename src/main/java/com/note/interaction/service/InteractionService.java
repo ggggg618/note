@@ -104,28 +104,33 @@ public class InteractionService {
     public PageResult<NoteResponse> listMyLikes(Long userId, long page, long size) {
         requireUser(userId);
         PageUtil.check(page, size);
-        Page<NoteLike> likePage = noteLikeMapper.selectPage(new Page<>(page, size),
-                new LambdaQueryWrapper<NoteLike>()
-                        .eq(NoteLike::getUserId, userId)
-                        .orderByDesc(NoteLike::getCreatedAt));
-
-        List<Long> noteIds = likePage.getRecords().stream()
+        List<NoteLike> allLikes = noteLikeMapper.selectList(new LambdaQueryWrapper<NoteLike>()
+                .eq(NoteLike::getUserId, userId)
+                .orderByDesc(NoteLike::getCreatedAt));
+        List<Long> noteIds = allLikes.stream()
                 .map(NoteLike::getNoteId)
                 .collect(Collectors.toList());
         Map<Long, Note> noteMap = noteIds.isEmpty()
                 ? Collections.emptyMap()
-                : noteMapper.selectBatchIds(noteIds).stream()
+                : noteMapper.selectList(new LambdaQueryWrapper<Note>()
+                                .in(Note::getId, noteIds)
+                                .eq(Note::getVisibility, 1)
+                                .eq(Note::getAuditStatus, 1))
+                        .stream()
                         .collect(Collectors.toMap(Note::getId, note -> note));
-        List<NoteResponse> records = likePage.getRecords().stream()
+        List<NoteResponse> all = allLikes.stream()
                 .map(like -> noteMap.get(like.getNoteId()))
                 .filter(Objects::nonNull)
-                .filter(note -> Integer.valueOf(1).equals(note.getVisibility())
-                        && Integer.valueOf(1).equals(note.getAuditStatus()))
                 .map(note -> new NoteResponse(note.getId(), note.getUserId(), note.getTitle(), note.getBookName(), note.getContent(), note.getVisibility(),
                         likeCount(note)))
                 .collect(Collectors.toList());
-
-        return new PageResult<>(likePage.getTotal(), likePage.getCurrent(), likePage.getSize(), records);
+        long total = all.size();
+        int from = (int) ((page - 1) * size);
+        if (from >= total) {
+            return new PageResult<>(total, page, size, Collections.emptyList());
+        }
+        int to = (int) Math.min(from + size, total);
+        return new PageResult<>(total, page, size, all.subList(from, to));
     }
 
     public PageResult<NoteResponse> feed(Long userId, long page, long size) {

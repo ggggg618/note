@@ -20,6 +20,9 @@ public class JwtUtil {
 
     public JwtUtil(@Value("${jwt.secret}") String secret,
                    @Value("${jwt.expire-hours:24}") long expireHours) {
+        if (secret == null || secret.length() < 32) {
+            throw new IllegalStateException("JWT_SECRET 长度不能少于32个字符，请通过环境变量设置");
+        }
         this.key = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
         this.expireMillis = expireHours * 60 * 60 * 1000;
     }

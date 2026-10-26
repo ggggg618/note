@@ -84,11 +84,11 @@ public class AiService {
         return new AiResponse(existing.getType(), existing.getContent());
     }
 
-    public NoteAi getResult(Long userId, Long noteId) {
+    public NoteAi getResult(Long userId, Long noteId, String type) {
         requireOwnedNote(userId, noteId);
         return noteAiMapper.selectOne(new LambdaQueryWrapper<NoteAi>()
                 .eq(NoteAi::getNoteId, noteId)
-                .eq(NoteAi::getType, "SUMMARY"));
+                .eq(NoteAi::getType, type));
     }
 
     public ConversationResponse createConversation(Long userId) {
@@ -217,17 +217,18 @@ public class AiService {
     private String callAi(Long userId, String type, String systemPrompt, String userPrompt, boolean sensitive) {
         String prompt = systemPrompt + "\n" + userPrompt;
         String logPrompt = sensitive ? "[私有笔记内容已省略] " + systemPrompt : prompt;
+        String logType = aiClient.isConfigured() ? type : type + "_MOCK";
         try {
             String response = aiClient.chat(systemPrompt, userPrompt);
-            recordAiLog(userId, type, logPrompt, response, 1);
+            recordAiLog(userId, logType, logPrompt, response, 1);
             return response;
         } catch (BusinessException ex) {
-            recordAiLog(userId, type, logPrompt, ex.getMessage(), 0);
-            log.error("AI 调用失败: userId={}, type={}, message={}", userId, type, ex.getMessage());
+            recordAiLog(userId, logType, logPrompt, ex.getMessage(), 0);
+            log.error("AI 调用失败: userId={}, type={}, message={}", userId, logType, ex.getMessage());
             throw ex;
         } catch (Exception ex) {
-            recordAiLog(userId, type, logPrompt, ex.getMessage(), 0);
-            log.error("AI 调用异常: userId={}, type={}", userId, type, ex);
+            recordAiLog(userId, logType, logPrompt, ex.getMessage(), 0);
+            log.error("AI 调用异常: userId={}, type={}", userId, logType, ex);
             throw new BusinessException("AI 调用失败");
         }
     }

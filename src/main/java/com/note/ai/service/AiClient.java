@@ -17,8 +17,12 @@ public class AiClient {
         this.chatClientBuilder = chatClientBuilder;
     }
 
+    public boolean isConfigured() {
+        return apiKey != null && !apiKey.isBlank() && !"sk-placeholder".equals(apiKey);
+    }
+
     public String chat(String systemPrompt, String userPrompt) {
-        if (apiKey == null || apiKey.isBlank() || "sk-placeholder".equals(apiKey)) {
+        if (!isConfigured()) {
             return "AI 服务未配置，这是模拟结果：已根据你的内容生成参考。";
         }
 
