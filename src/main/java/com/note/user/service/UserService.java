@@ -40,14 +40,14 @@ public class UserService {
 
     public UserResponse register(RegisterRequest request) {
         Long count = userMapper.selectCount(
-                new LambdaQueryWrapper<User>().eq(User::getUsername, request.getUsername())
+                new LambdaQueryWrapper<User>().eq(User::getUsername, request.getUsername().trim())
         );
         if (count != null && count > 0) {
             throw new BusinessException("用户名已存在");
         }
 
         User user = new User();
-        user.setUsername(request.getUsername());
+        user.setUsername(request.getUsername().trim());
         user.setPassword(passwordEncoder.encode(request.getPassword()));
         user.setNickname(request.getNickname());
         user.setRole("USER");
@@ -66,7 +66,7 @@ public class UserService {
             throw new BusinessException(429, "尝试次数过多，请15分钟后再试");
         }
         User user = userMapper.selectOne(
-                new LambdaQueryWrapper<User>().eq(User::getUsername, request.getUsername())
+                new LambdaQueryWrapper<User>().eq(User::getUsername, request.getUsername().trim())
         );
         if (user == null || !passwordEncoder.matches(request.getPassword(), user.getPassword())) {
             recordLoginFailure(request.getUsername(), now);

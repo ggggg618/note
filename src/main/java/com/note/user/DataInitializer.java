@@ -19,6 +19,9 @@ public class DataInitializer implements CommandLineRunner {
 
     @Override
     public void run(String... args) {
+        if (adminPassword == null || adminPassword.isBlank()) {
+            throw new IllegalStateException("管理员初始密码不能为空，请设置 ADMIN_PASSWORD 环境变量");
+        }
         Long count = userMapper.selectCount(
                 new LambdaQueryWrapper<User>().eq(User::getUsername, "admin")
         );

@@ -50,9 +50,10 @@ public class AdminService {
         PageUtil.check(page, size);
         LambdaQueryWrapper<User> wrapper = new LambdaQueryWrapper<>();
         if (StringUtils.hasText(keyword)) {
-            wrapper.and(query -> query.like(User::getUsername, keyword)
+            String like = "%" + escapeLike(keyword.trim()) + "%";
+            wrapper.and(query -> query.like(User::getUsername, like)
                     .or()
-                    .like(User::getNickname, keyword));
+                    .like(User::getNickname, like));
         }
         wrapper.orderByDesc(User::getCreatedAt);
 
@@ -61,6 +62,10 @@ public class AdminService {
                 .map(this::toUserAdminResponse)
                 .toList();
         return new PageResult<>(userPage.getTotal(), userPage.getCurrent(), userPage.getSize(), records);
+    }
+
+    private String escapeLike(String value) {
+        return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_");
     }
 
     public void setUserStatus(Long userId, Integer status) {

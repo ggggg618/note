@@ -150,13 +150,17 @@ public class NoteService {
                 .eq(Note::getAuditStatus, 1)
                 .orderByDesc(Note::getCreatedAt);
         if (keyword != null && !keyword.isBlank()) {
-            String keywordLike = "%" + keyword.trim() + "%";
+            String keywordLike = "%" + escapeLike(keyword.trim()) + "%";
             wrapper.and(w -> w.like(Note::getTitle, keywordLike)
                     .or()
                     .like(Note::getContent, keywordLike));
         }
         Page<Note> notePage = noteMapper.selectPage(new Page<>(page, size), wrapper);
         return toPageResult(notePage, page, size);
+    }
+
+    private String escapeLike(String value) {
+        return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_");
     }
 
     public PageResult<NoteResponse> listRankedNotes(long page, long size) {
@@ -256,10 +260,17 @@ public class NoteService {
         List<String> images = listImages(note.getId());
         List<NoteAi> aiResults = noteAiMapper.selectList(new LambdaQueryWrapper<NoteAi>()
                 .eq(NoteAi::getNoteId, note.getId()));
-        NoteAi saved = aiResults.stream().findFirst().orElse(null);
-        String aiResult = saved == null ? null : saved.getContent();
-        NoteResponse response = buildResponse(note, images, aiResult);
-        response.setAiResult(aiResult);
+        String summary = aiResults.stream().filter(a -> "SUMMARY".equals(a.getType()))
+                .map(NoteAi::getContent).findFirst().orElse(null);
+        String recommend = aiResults.stream().filter(a -> "RECOMMEND".equals(a.getType()))
+                .map(NoteAi::getContent).findFirst().orElse(null);
+        String score = aiResults.stream().filter(a -> "SCORE".equals(a.getType()))
+                .map(NoteAi::getContent).findFirst().orElse(null);
+        NoteResponse response = buildResponse(note, images, summary);
+        response.setAiResult(summary);
+        response.setAiSummary(summary);
+        response.setAiRecommend(recommend);
+        response.setAiScore(score);
         return response;
     }
 
@@ -322,7 +333,8 @@ public class NoteService {
             return Collections.emptyMap();
         }
         return noteAiMapper.selectList(new LambdaQueryWrapper<NoteAi>()
-                        .in(NoteAi::getNoteId, noteIds))
+                        .in(NoteAi::getNoteId, noteIds)
+                        .eq(NoteAi::getType, "SUMMARY"))
                 .stream()
                 .collect(Collectors.toMap(NoteAi::getNoteId, NoteAi::getContent));
     }

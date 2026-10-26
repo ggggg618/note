@@ -463,7 +463,11 @@ async function loadNoteDetail() {
             imgWrap.appendChild(img);
         });
 
-        $("#detail-ai").textContent = note.aiResult ? "已保存的 AI 结果：" + note.aiResult : "暂无 AI 结果";
+        const aiParts = [];
+        if (note.aiSummary) aiParts.push(`<p><b>AI 总结：</b>${escapeHtml(note.aiSummary)}</p>`);
+        if (note.aiRecommend) aiParts.push(`<p><b>AI 推荐：</b>${escapeHtml(note.aiRecommend)}</p>`);
+        if (note.aiScore) aiParts.push(`<p><b>AI 评分：</b>${escapeHtml(note.aiScore)}</p>`);
+        $("#detail-ai").innerHTML = aiParts.length ? aiParts.join("") : "暂无 AI 结果";
         document.querySelectorAll("#detail-view h3, #detail-comments, #detail-view .comment-form")
             .forEach((el) => el.classList.toggle("hidden", isPrivate));
         renderDetailActions(note);

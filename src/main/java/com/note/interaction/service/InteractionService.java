@@ -119,6 +119,8 @@ public class InteractionService {
         List<NoteResponse> records = likePage.getRecords().stream()
                 .map(like -> noteMap.get(like.getNoteId()))
                 .filter(Objects::nonNull)
+                .filter(note -> Integer.valueOf(1).equals(note.getVisibility())
+                        && Integer.valueOf(1).equals(note.getAuditStatus()))
                 .map(note -> new NoteResponse(note.getId(), note.getUserId(), note.getTitle(), note.getBookName(), note.getContent(), note.getVisibility(),
                         likeCount(note)))
                 .collect(Collectors.toList());

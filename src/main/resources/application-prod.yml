@@ -7,3 +7,7 @@ spring:
 
 jwt:
   secret: ${JWT_SECRET:}
+
+app:
+  admin:
+    password: ${ADMIN_PASSWORD:}
