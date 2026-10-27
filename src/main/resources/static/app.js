@@ -192,7 +192,10 @@ function showView(name) {
     if (name === "authors") loadHotAuthors();
     if (name === "rank") loadRankedNotes();
     if (name === "chat") loadChat();
-    if (name === "books") loadBooks();
+    if (name === "books") {
+        pageState.books = 1;
+        loadBooks();
+    }
     if (name === "profile") loadProfile();
     if (name === "admin") {
         pageState.adminUsers = 1;
@@ -217,10 +220,11 @@ let currentUserId = null;
 let currentAuthorId = null;
 let replyToCommentId = null;
 let editingNoteId = null;
+let commentPage = 1;
 let likedNoteIds = new Set();
 let followingIds = new Set();
 const PAGE_SIZE = 10;
-const pageState = { notes: 1, public: 1, feeds: 1, likes: 1, authors: 1, rank: 1, adminUsers: 1, adminNotes: 1 };
+const pageState = { notes: 1, public: 1, feeds: 1, likes: 1, authors: 1, rank: 1, adminUsers: 1, adminNotes: 1, books: 1 };
 $("#toggle-auth").addEventListener("click", () => {
     registerMode = !registerMode;
     renderAuthMode();
@@ -472,6 +476,7 @@ async function loadNoteDetail() {
         document.querySelectorAll("#detail-view h3, #detail-comments, #detail-view .comment-form")
             .forEach((el) => el.classList.toggle("hidden", isPrivate));
         renderDetailActions(note);
+        commentPage = 1;
         await loadComments(note.id);
     } catch (e) {
         notify(e.message);
@@ -524,10 +529,12 @@ function renderDetailActions(note) {
 
 async function loadComments(noteId) {
     const container = $("#detail-comments");
-    container.innerHTML = "";
-    const comments = await request(`/comments/${noteId}`);
-    if (!Array.isArray(comments) || comments.length === 0) {
-        container.textContent = "暂无评论";
+    const data = await request(`/comments/${noteId}?page=${commentPage}&size=${PAGE_SIZE}`);
+    const comments = data.records || [];
+    if (commentPage === 1) container.innerHTML = "";
+    if (comments.length === 0) {
+        if (commentPage === 1) container.textContent = "暂无评论";
+        $("#comments-more").classList.add("hidden");
         return;
     }
     const ids = new Set();
@@ -540,6 +547,7 @@ async function loadComments(noteId) {
         try { authors[id] = await request(`/users/${id}`); } catch (e) {}
     }));
     comments.forEach((c) => renderComment(c, authors, container));
+    $("#comments-more").classList.toggle("hidden", comments.length < PAGE_SIZE);
 }
 
 function renderComment(comment, authors, parent) {
@@ -764,11 +772,12 @@ function authorCard(author) {
 
 async function loadBooks() {
     await ensureCurrentUser();
-    const data = await request("/books?page=1&size=100");
+    const data = await request(`/books?page=${pageState.books}&size=${PAGE_SIZE}`);
     const list = $("#books-list");
-    list.innerHTML = "";
+    if (pageState.books === 1) list.innerHTML = "";
     if (!data.records || data.records.length === 0) {
-        renderEmpty(list, "图书库还是空的");
+        if (pageState.books === 1) renderEmpty(list, "图书库还是空的");
+        $("#books-more").classList.add("hidden");
         return;
     }
     (data.records || []).forEach((b) => {
@@ -785,6 +794,7 @@ async function loadBooks() {
         row.appendChild(del);
         list.appendChild(row);
     });
+    $("#books-more").classList.toggle("hidden", data.records.length < PAGE_SIZE);
 }
 
 $("#book-form").addEventListener("submit", async (e) => {
@@ -1124,6 +1134,11 @@ bindMore("rank", "#rank-more", loadRankedNotes);
 bindMore("feeds", "#feeds-more", loadFeeds);
 bindMore("likes", "#likes-more", loadMyLikes);
 bindMore("authors", "#authors-more", loadHotAuthors);
+bindMore("books", "#books-more", loadBooks);
+$("#comments-more").addEventListener("click", () => {
+    commentPage++;
+    loadComments(detailNoteId);
+});
 $("#admin-users-more").addEventListener("click", () => {
     pageState.adminUsers++;
     loadAdmin();

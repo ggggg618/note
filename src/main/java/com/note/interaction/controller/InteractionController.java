@@ -97,8 +97,11 @@ public class InteractionController {
     }
 
     @GetMapping("/api/comments/{noteId}")
-    public Result<List<CommentResponse>> listComments(@PathVariable Long noteId) {
-        return Result.ok(interactionService.listComments(noteId));
+    public Result<PageResult<CommentResponse>> listComments(
+            @PathVariable Long noteId,
+            @RequestParam(defaultValue = "1") long page,
+            @RequestParam(defaultValue = "10") long size) {
+        return Result.ok(interactionService.listComments(noteId, page, size));
     }
 
     @DeleteMapping("/api/comments/{id}")

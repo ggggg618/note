@@ -301,7 +301,8 @@ public class InteractionService {
         return response(comment);
     }
 
-    public List<CommentResponse> listComments(Long noteId) {
+    public PageResult<CommentResponse> listComments(Long noteId, long page, long size) {
+        PageUtil.check(page, size);
         Note note = noteMapper.selectById(noteId);
         if (note == null) {
             throw new BusinessException("笔记不存在");
@@ -323,10 +324,17 @@ public class InteractionService {
                 .filter(comment -> comment.getParentId() != null)
                 .collect(Collectors.groupingBy(Comment::getParentId, LinkedHashMap::new, Collectors.toList()));
 
-        return comments.stream()
+        List<CommentResponse> topLevel = comments.stream()
                 .filter(comment -> comment.getParentId() == null)
                 .map(comment -> response(comment, childrenByParentId))
                 .collect(Collectors.toList());
+        long total = topLevel.size();
+        int from = (int) ((page - 1) * size);
+        if (from >= total) {
+            return new PageResult<>(total, page, size, Collections.emptyList());
+        }
+        int to = (int) Math.min(from + size, total);
+        return new PageResult<>(total, page, size, topLevel.subList(from, to));
     }
 
     @Transactional
