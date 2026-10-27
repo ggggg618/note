@@ -4,10 +4,14 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.note.common.BusinessException;
 import com.note.common.Result;
 import com.note.common.UserContext;
+import com.note.interaction.entity.Comment;
+import com.note.interaction.mapper.CommentMapper;
 import com.note.note.entity.Note;
 import com.note.note.entity.NoteImage;
 import com.note.note.mapper.NoteImageMapper;
 import com.note.note.mapper.NoteMapper;
+import com.note.user.User;
+import com.note.user.UserMapper;
 import com.note.util.FileStorageService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
@@ -19,6 +23,8 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.util.List;
+
 @RestController
 @RequiredArgsConstructor
 public class FileController {
@@ -26,6 +32,8 @@ public class FileController {
     private final FileStorageService fileStorageService;
     private final NoteImageMapper noteImageMapper;
     private final NoteMapper noteMapper;
+    private final UserMapper userMapper;
+    private final CommentMapper commentMapper;
 
     @PostMapping("/api/files")
     public Result<String> upload(@RequestParam("file") MultipartFile file) {
@@ -49,9 +57,30 @@ public class FileController {
             if (!publicApproved && !owner && !UserContext.isAdmin()) {
                 throw new BusinessException(403, "无权限访问");
             }
+        } else if (!isPublicAvatar(url) && !isPublicCommentMedia(filename) && UserContext.id() == null) {
+            throw new BusinessException(401, "请先登录");
         }
         byte[] data = fileStorageService.read(filename);
         return ResponseEntity.ok().contentType(contentType(filename)).body(data);
+    }
+
+    private boolean isPublicAvatar(String url) {
+        Long count = userMapper.selectCount(new LambdaQueryWrapper<User>()
+                .eq(User::getAvatar, url));
+        return count != null && count > 0;
+    }
+
+    private boolean isPublicCommentMedia(String filename) {
+        List<Comment> comments = commentMapper.selectList(new LambdaQueryWrapper<Comment>()
+                .like(Comment::getMedia, filename));
+        for (Comment comment : comments) {
+            Note note = noteMapper.selectById(comment.getNoteId());
+            if (note != null && Integer.valueOf(1).equals(note.getVisibility())
+                    && Integer.valueOf(1).equals(note.getAuditStatus())) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private MediaType contentType(String filename) {

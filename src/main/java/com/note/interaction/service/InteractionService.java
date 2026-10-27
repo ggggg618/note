@@ -3,10 +3,10 @@ package com.note.interaction.service;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.note.common.BusinessException;
+import com.note.common.CommentTreeUtil;
 import com.note.common.PageResult;
 import com.note.common.PageUtil;
 import com.note.common.UserContext;
@@ -14,7 +14,6 @@ import com.note.interaction.dto.AuthorResponse;
 import com.note.interaction.dto.AuthorStatsResponse;
 import com.note.interaction.dto.CommentRequest;
 import com.note.interaction.dto.CommentResponse;
-import com.note.interaction.dto.NoteResponse;
 import com.note.interaction.entity.Comment;
 import com.note.interaction.entity.Follow;
 import com.note.interaction.entity.NoteLike;
@@ -23,6 +22,7 @@ import com.note.interaction.mapper.FollowMapper;
 import com.note.interaction.mapper.NoteLikeMapper;
 import com.note.note.entity.Note;
 import com.note.note.mapper.NoteMapper;
+import com.note.note.dto.NoteResponse;
 import com.note.user.User;
 import com.note.user.UserMapper;
 import com.note.util.FileStorageService;
@@ -33,12 +33,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Deque;
 import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -132,8 +129,18 @@ public class InteractionService {
                         .orderByDesc(Note::getId));
 
         List<NoteResponse> records = notePage.getRecords().stream()
-                .map(note -> new NoteResponse(note.getId(), note.getUserId(), note.getTitle(), note.getBookName(), note.getContent(), note.getVisibility(),
-                        likeCount(note)))
+                .map(note -> {
+                    NoteResponse response = new NoteResponse();
+                    response.setId(note.getId());
+                    response.setUserId(note.getUserId());
+                    response.setTitle(note.getTitle());
+                    response.setBookName(note.getBookName());
+                    response.setContent(note.getContent());
+                    response.setVisibility(note.getVisibility());
+                    response.setLikeCount(note.getLikeCount());
+                    response.setCreatedAt(note.getCreatedAt());
+                    return response;
+                })
                 .collect(Collectors.toList());
 
         return new PageResult<>(notePage.getTotal(), notePage.getCurrent(), notePage.getSize(), records);
@@ -217,10 +224,8 @@ public class InteractionService {
 
     public PageResult<AuthorResponse> hotAuthors(long page, long size) {
         PageUtil.check(page, size);
-        List<Map<String, Object>> rows = followMapper.selectMaps(new QueryWrapper<Follow>()
-                .select("followee_id", "COUNT(*) AS cnt")
-                .groupBy("followee_id")
-                .orderByDesc("cnt"));
+        long offset = (page - 1) * size;
+        List<Map<String, Object>> rows = followMapper.selectHotAuthorsPage(offset, size);
         Map<Long, Long> followerCounts = new LinkedHashMap<>();
         for (Map<String, Object> row : rows) {
             Object idObj = row.get("followee_id");
@@ -230,19 +235,8 @@ public class InteractionService {
             }
         }
 
-        List<Map.Entry<Long, Long>> sorted = followerCounts.entrySet().stream()
-                .sorted(Map.Entry.<Long, Long>comparingByValue().reversed())
-                .collect(Collectors.toList());
-
-        long total = sorted.size();
-        long fromIndex = (page - 1) * size;
-        if (fromIndex >= total) {
-            return new PageResult<>(total, page, size, Collections.emptyList());
-        }
-        int toIndex = (int) Math.min(fromIndex + size, total);
-        List<Long> authorIds = sorted.subList((int) fromIndex, toIndex).stream()
-                .map(Map.Entry::getKey)
-                .collect(Collectors.toList());
+        long total = followMapper.countHotAuthors();
+        List<Long> authorIds = List.copyOf(followerCounts.keySet());
 
         Map<Long, User> users = authorsById(authorIds);
         Map<Long, Long> noteCounts = noteCountsByUser(authorIds);
@@ -350,22 +344,7 @@ public class InteractionService {
 
         List<Comment> comments = commentMapper.selectList(new LambdaQueryWrapper<Comment>()
                 .eq(Comment::getNoteId, comment.getNoteId()));
-        Map<Long, List<Comment>> childrenByParentId = comments.stream()
-                .filter(item -> item.getParentId() != null)
-                .collect(Collectors.groupingBy(Comment::getParentId));
-
-        Deque<Long> queue = new ArrayDeque<>();
-        Set<Long> deleteIds = new LinkedHashSet<>();
-        queue.add(commentId);
-        deleteIds.add(commentId);
-        while (!queue.isEmpty()) {
-            Long parentId = queue.poll();
-            for (Comment child : childrenByParentId.getOrDefault(parentId, Collections.emptyList())) {
-                if (deleteIds.add(child.getId())) {
-                    queue.add(child.getId());
-                }
-            }
-        }
+        Set<Long> deleteIds = CommentTreeUtil.collectSubtreeIds(commentId, comments);
         for (Long deleteId : deleteIds) {
             Comment deleting = comments.stream()
                     .filter(c -> c.getId().equals(deleteId))
@@ -469,8 +448,4 @@ public class InteractionService {
         return count == null ? 0L : count;
     }
 
-    private Long likeCount(Note note) {
-        Number value = note.getLikeCount();
-        return value == null ? 0L : value.longValue();
-    }
 }

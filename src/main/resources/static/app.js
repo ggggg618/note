@@ -87,7 +87,7 @@ function confirmAction(message) {
     });
 }
 
-function confirmAiResult(title, content) {
+function confirmAiResult(title, content, allowSave = true) {
     return new Promise((resolve) => {
         const overlay = document.createElement("div");
         overlay.className = "dialog-overlay";
@@ -101,13 +101,23 @@ function confirmAiResult(title, content) {
         body.textContent = content || "";
         const row = document.createElement("div");
         row.className = "dialog-actions";
-        const discard = document.createElement("button");
-        discard.type = "button";
-        discard.textContent = "丢弃";
-        const save = document.createElement("button");
-        save.type = "button";
-        save.textContent = "保存";
-        row.append(discard, save);
+        let discard;
+        let save;
+        let closeButton;
+        if (allowSave) {
+            discard = document.createElement("button");
+            discard.type = "button";
+            discard.textContent = "丢弃";
+            save = document.createElement("button");
+            save.type = "button";
+            save.textContent = "保存";
+            row.append(discard, save);
+        } else {
+            closeButton = document.createElement("button");
+            closeButton.type = "button";
+            closeButton.textContent = "关闭";
+            row.append(closeButton);
+        }
         box.append(label, body, row);
         overlay.appendChild(box);
         document.body.appendChild(overlay);
@@ -115,8 +125,12 @@ function confirmAiResult(title, content) {
             overlay.remove();
             resolve(value);
         };
-        save.addEventListener("click", () => close(true));
-        discard.addEventListener("click", () => close(false));
+        if (allowSave) {
+            save.addEventListener("click", () => close(true));
+            discard.addEventListener("click", () => close(false));
+        } else {
+            closeButton.addEventListener("click", () => close(false));
+        }
     });
 }
 
@@ -311,7 +325,7 @@ function noteCard(note) {
     const likeCount = note.likeCount == null ? 0 : note.likeCount;
     const isPrivate = note.visibility === 0;
     const audit = note.visibility === 1 && note.auditStatus != null
-        ? `<div class="note-audit ${note.auditStatus === 2 ? "rejected" : ""}">${auditLabel(note.auditStatus)}${note.auditStatus === 2 ? " · 编辑后可重新提交" : ""}</div>`
+        ? `<div class="note-audit ${note.auditStatus === 2 ? "rejected" : ""}">${auditLabel(note.auditStatus)}${note.auditStatus === 2 ? " · 已驳回，可修改后重新提交" : ""}</div>`
         : "";
     el.innerHTML = `<h3>${escapeHtml(note.title)}</h3><p>${escapeHtml(note.bookName || "")}</p><p>${escapeHtml((note.content || "").slice(0, 80))}</p>${isPrivate ? "" : `<div class="note-meta">赞 ${likeCount}</div>`}${audit}`;
     el.style.cursor = "pointer";
@@ -356,6 +370,24 @@ function noteCard(note) {
         actions.appendChild(makeFollowButton(note.userId));
     }
     if (isOwn) {
+        if (note.visibility === 1 && note.auditStatus === 2) {
+            actions.appendChild(actionButton("重新提交", async () => {
+                try {
+                    await request(`/notes/${note.id}`, {
+                        method: "PUT",
+                        headers: headers(),
+                        body: JSON.stringify({
+                            title: note.title,
+                            content: note.content,
+                            bookName: note.bookName,
+                            visibility: 1
+                        })
+                    });
+                    notify("已重新提交审核");
+                    showView("notes");
+                } catch (e) { notify(e.message); }
+            }));
+        }
         actions.appendChild(actionButton("编辑", () => openEditor(note)));
         actions.appendChild(actionButton("删除", async () => {
             if (!(await confirmAction("确定删除这篇笔记吗？"))) return;
@@ -365,9 +397,11 @@ function noteCard(note) {
                 showView("notes");
             } catch (e) { notify(e.message); }
         }));
-        actions.appendChild(actionButton("AI 总结", () => runAiSummary(note.id, false)));
-        actions.appendChild(actionButton("AI 推荐", () => runAiAction("/ai/recommend", note.id, "RECOMMEND")));
-        actions.appendChild(actionButton("AI 评分", () => runAiAction("/ai/score", note.id, "SCORE")));
+    }
+    if (currentUserId != null) {
+        actions.appendChild(actionButton("AI 总结", () => runAiSummary(note.id, false, isOwn)));
+        actions.appendChild(actionButton("AI 推荐", () => runAiAction("/ai/recommend", note.id, "RECOMMEND", false, isOwn)));
+        actions.appendChild(actionButton("AI 评分", () => runAiAction("/ai/score", note.id, "SCORE", false, isOwn)));
     }
     el.appendChild(actions);
     return el;
@@ -406,10 +440,11 @@ function makeFollowButton(targetId, onChanged) {
     return btn;
 }
 
-async function runAiSummary(noteId, reloadDetail) {
+async function runAiSummary(noteId, reloadDetail, allowSave = true) {
     try {
         const data = await request("/ai/summary", { method: "POST", headers: headers(), body: JSON.stringify({ noteId }) });
-        const save = await confirmAiResult("AI 总结", data.content);
+        const save = await confirmAiResult("AI 总结", data.content, allowSave);
+        if (!allowSave) return;
         if (save) {
             await request("/ai/result/save", { method: "POST", headers: headers(), body: JSON.stringify({ noteId, type: "SUMMARY", content: data.content }) });
             notify("AI 总结已保存");
@@ -420,11 +455,12 @@ async function runAiSummary(noteId, reloadDetail) {
     } catch (e) { notify(e.message); }
 }
 
-async function runAiAction(path, noteId, type, reloadDetail = false) {
+async function runAiAction(path, noteId, type, reloadDetail = false, allowSave = true) {
     try {
         const data = await request(path, { method: "POST", headers: headers(), body: JSON.stringify({ noteId }) });
         const title = type === "RECOMMEND" ? "AI 推荐" : "AI 评分";
-        const save = await confirmAiResult(title, data.content);
+        const save = await confirmAiResult(title, data.content, allowSave);
+        if (!allowSave) return;
         if (save) {
             await request("/ai/result/save", { method: "POST", headers: headers(), body: JSON.stringify({ noteId, type, content: data.content }) });
             notify(`${title}已保存`);
@@ -521,9 +557,11 @@ function renderDetailActions(note) {
                 showView("notes");
             } catch (e) { notify(e.message); }
         }));
-        actions.appendChild(actionButton("AI 总结", () => runAiSummary(note.id, true)));
-        actions.appendChild(actionButton("AI 推荐", () => runAiAction("/ai/recommend", note.id, "RECOMMEND", true)));
-        actions.appendChild(actionButton("AI 评分", () => runAiAction("/ai/score", note.id, "SCORE", true)));
+    }
+    if (currentUserId != null) {
+        actions.appendChild(actionButton("AI 总结", () => runAiSummary(note.id, true, isOwn)));
+        actions.appendChild(actionButton("AI 推荐", () => runAiAction("/ai/recommend", note.id, "RECOMMEND", true, isOwn)));
+        actions.appendChild(actionButton("AI 评分", () => runAiAction("/ai/score", note.id, "SCORE", true, isOwn)));
     }
 }
 

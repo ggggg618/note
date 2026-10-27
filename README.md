@@ -106,6 +106,12 @@ export AI_MODEL='gpt-4o-mini'
 
 密钥仅通过环境变量注入，请勿写入代码库。
 
+如果使用图片识别功能，且视觉模型与聊天模型不同，可额外配置：
+
+```bash
+export AI_VISION_MODEL='gpt-4o-mini'
+```
+
 ## 项目结构
 
 ```text

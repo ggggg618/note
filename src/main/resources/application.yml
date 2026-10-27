@@ -24,6 +24,9 @@ springdoc:
   swagger-ui:
     path: /swagger-ui.html
 
+ai:
+  vision-model: ${AI_VISION_MODEL:${AI_MODEL:gpt-4o-mini}}
+
 mybatis-plus:
   configuration:
     map-underscore-to-camel-case: true

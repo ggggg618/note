@@ -10,6 +10,7 @@ import com.note.admin.dto.UserAdminResponse;
 import com.note.admin.entity.AiLog;
 import com.note.admin.mapper.AiLogMapper;
 import com.note.common.BusinessException;
+import com.note.common.CommentTreeUtil;
 import com.note.common.PageResult;
 import com.note.common.PageUtil;
 import com.note.common.UserContext;
@@ -25,10 +26,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
-import java.util.ArrayDeque;
 import java.util.Collections;
-import java.util.Deque;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -136,22 +134,7 @@ public class AdminService {
 
         List<Comment> comments = commentMapper.selectList(
                 new LambdaQueryWrapper<Comment>().eq(Comment::getNoteId, comment.getNoteId()));
-        Map<Long, List<Comment>> childrenByParentId = comments.stream()
-                .filter(item -> item.getParentId() != null)
-                .collect(java.util.stream.Collectors.groupingBy(Comment::getParentId));
-
-        Deque<Long> queue = new ArrayDeque<>();
-        Set<Long> deleteIds = new LinkedHashSet<>();
-        queue.add(commentId);
-        deleteIds.add(commentId);
-        while (!queue.isEmpty()) {
-            Long parentId = queue.poll();
-            for (Comment child : childrenByParentId.getOrDefault(parentId, Collections.emptyList())) {
-                if (deleteIds.add(child.getId())) {
-                    queue.add(child.getId());
-                }
-            }
-        }
+        Set<Long> deleteIds = CommentTreeUtil.collectSubtreeIds(commentId, comments);
         for (Long deleteId : deleteIds) {
             Comment deleting = comments.stream()
                     .filter(c -> c.getId().equals(deleteId))

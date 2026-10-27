@@ -84,6 +84,22 @@ class AiServiceTest {
         assertEquals("[私有笔记内容已省略]", captor.getValue().getResponse());
     }
 
+    @Test
+    void allowsAiGenerationForAnotherUsersPublicNote() {
+        Note note = new Note();
+        note.setId(1L);
+        note.setUserId(2L);
+        note.setVisibility(1);
+        note.setAuditStatus(1);
+        when(noteMapper.selectById(1L)).thenReturn(note);
+        when(aiClient.chat(any(), any())).thenReturn("公开笔记摘要");
+
+        var response = aiService.generateSummary(1L, 1L);
+
+        assertEquals("SUMMARY", response.getType());
+        assertEquals("公开笔记摘要", response.getContent());
+    }
+
     private SaveAiRequest saveRequest(String type, String content) {
         SaveAiRequest request = new SaveAiRequest();
         request.setNoteId(1L);

@@ -25,7 +25,7 @@ public class AiClient {
     @Value("${spring.ai.openai.base-url:https://api.openai.com}")
     private String baseUrl;
 
-    @Value("${ai.vision-model:Qwen/Qwen2.5-VL-7B-Instruct}")
+    @Value("${ai.vision-model}")
     private String visionModel;
 
     private final ChatClient.Builder chatClientBuilder;

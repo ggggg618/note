@@ -1,7 +1,7 @@
 package com.note.interaction.service;
 
 import com.note.common.PageResult;
-import com.note.interaction.dto.NoteResponse;
+import com.note.note.dto.NoteResponse;
 import com.note.interaction.entity.NoteLike;
 import com.note.interaction.mapper.NoteLikeMapper;
 import com.note.common.BusinessException;

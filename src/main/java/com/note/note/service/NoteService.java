@@ -71,7 +71,7 @@ public class NoteService {
     public NoteResponse updateNote(Long userId, Long noteId, NoteRequest request) {
         requireUser(userId);
         Note note = getExistingNote(noteId);
-        if (!note.getUserId().equals(userId)) {
+        if (!note.getUserId().equals(userId) && !UserContext.isAdmin()) {
             throw new BusinessException("无权限操作");
         }
         if (request.getVisibility() != null) {
@@ -93,7 +93,8 @@ public class NoteService {
         if (request.getVisibility() != null) {
             updateWrapper.set(Note::getVisibility, request.getVisibility());
         }
-        if (becomesPublic && (contentChanged || visibilityChanged)) {
+        if (becomesPublic && (contentChanged || visibilityChanged
+                || Integer.valueOf(2).equals(note.getAuditStatus()))) {
             updateWrapper.set(Note::getAuditStatus, 0);
         }
         noteMapper.update(null, updateWrapper);

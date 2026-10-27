@@ -8,7 +8,7 @@ import com.note.interaction.dto.AuthorResponse;
 import com.note.interaction.dto.AuthorStatsResponse;
 import com.note.interaction.dto.CommentRequest;
 import com.note.interaction.dto.CommentResponse;
-import com.note.interaction.dto.NoteResponse;
+import com.note.note.dto.NoteResponse;
 import com.note.interaction.service.InteractionService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;

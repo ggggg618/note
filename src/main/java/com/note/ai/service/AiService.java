@@ -15,6 +15,7 @@ import com.note.ai.mapper.ConversationMapper;
 import com.note.ai.mapper.ConversationMessageMapper;
 import com.note.ai.mapper.NoteAiMapper;
 import com.note.common.BusinessException;
+import com.note.common.UserContext;
 import com.note.note.entity.Note;
 import com.note.note.mapper.NoteMapper;
 import lombok.RequiredArgsConstructor;
@@ -39,21 +40,21 @@ public class AiService {
     private final AiClient aiClient;
 
     public AiResponse generateSummary(Long userId, Long noteId) {
-        Note note = requireOwnedNote(userId, noteId);
+        Note note = requireViewableNote(userId, noteId);
         String systemPrompt = "你是一名专业的读书笔记助手。请根据用户提供的笔记内容，用简洁清晰的中文生成一段内容摘要。";
         String content = callAi(userId, "SUMMARY", systemPrompt, note.getContent(), note.getVisibility() != null && note.getVisibility() == 0);
         return new AiResponse("SUMMARY", content);
     }
 
     public AiResponse generateRecommend(Long userId, Long noteId) {
-        Note note = requireOwnedNote(userId, noteId);
+        Note note = requireViewableNote(userId, noteId);
         String systemPrompt = "你是一名专业的阅读推荐助手。请根据用户提供的笔记内容，结合主题和阅读深度推荐相关书籍、延伸主题或学习方法，并用中文说明推荐理由。";
         String content = callAi(userId, "RECOMMEND", systemPrompt, note.getContent(), note.getVisibility() != null && note.getVisibility() == 0);
         return new AiResponse("RECOMMEND", content);
     }
 
     public AiResponse generateScore(Long userId, Long noteId) {
-        Note note = requireOwnedNote(userId, noteId);
+        Note note = requireViewableNote(userId, noteId);
         String systemPrompt = "你是一名笔记质量评审助手。请从完整性、相关性、思考深度三个维度评估用户笔记，给出 0-100 分，并用简短的中文理由说明评分依据。";
         String content = callAi(userId, "SCORE", systemPrompt, note.getContent(), note.getVisibility() != null && note.getVisibility() == 0);
         return new AiResponse("SCORE", content);
@@ -123,7 +124,7 @@ public class AiService {
     }
 
     public ChatMessageResponse chat(Long userId, Long conversationId, ChatMessageRequest request) {
-        requireOwnedConversation(userId, conversationId);
+        Conversation conversation = requireOwnedConversation(userId, conversationId);
 
         List<ConversationMessage> recentMessages = conversationMessageMapper.selectList(
                 new LambdaQueryWrapper<ConversationMessage>()
@@ -142,15 +143,26 @@ public class AiService {
             }
         }
 
-        LocalDateTime now = LocalDateTime.now();
-        insertMessage(conversationId, "user", request.getContent(), now);
         String userPrompt = context + "用户：" + request.getContent();
         String systemPrompt = "你是笔记工坊平台的智能客服。只回答与本平台功能、笔记管理、账号、AI 辅助阅读等平台使用相关的问题；遇到与平台无关的问题时，请礼貌拒绝并引导用户咨询平台相关问题。"
                 + "平台实际功能路径如下：发布公开笔记请点击顶部“我的笔记”，再点“新建笔记”，填写后选择“公开”并保存，随后等待管理员审核；"
                 + "查看公开笔记在顶部“公开笔记”；关注动态在“关注动态”；AI 总结在笔记详情或卡片上；AI 客服在“AI 客服”。请按这些真实入口回答，不要编造“创作中心、发布笔记”等不存在的入口。";
 
         String reply = callAi(userId, "CHAT", systemPrompt, userPrompt, false);
-        ConversationMessage assistantMessage = insertMessage(conversationId, "assistant", reply, LocalDateTime.now());
+        LocalDateTime now = LocalDateTime.now();
+        ConversationMessage userMessage = insertMessage(conversationId, "user", request.getContent(), now);
+        ConversationMessage assistantMessage;
+        try {
+            assistantMessage = insertMessage(conversationId, "assistant", reply, now);
+        } catch (RuntimeException ex) {
+            conversationMessageMapper.deleteById(userMessage.getId());
+            throw ex;
+        }
+        if ("新会话".equals(conversation.getTitle())) {
+            conversation.setTitle(truncate(request.getContent(), 20));
+            conversation.setUpdatedAt(now);
+            conversationMapper.updateById(conversation);
+        }
         return new ChatMessageResponse(assistantMessage.getId(), "assistant", reply, assistantMessage.getCreatedAt());
     }
 
@@ -195,6 +207,20 @@ public class AiService {
             throw new BusinessException("笔记不存在");
         }
         if (!userId.equals(note.getUserId())) {
+            throw new BusinessException(403, "无权限操作");
+        }
+        return note;
+    }
+
+    private Note requireViewableNote(Long userId, Long noteId) {
+        requireUser(userId);
+        Note note = noteMapper.selectById(noteId);
+        if (note == null) {
+            throw new BusinessException("笔记不存在");
+        }
+        boolean publicApproved = Integer.valueOf(1).equals(note.getVisibility())
+                && Integer.valueOf(1).equals(note.getAuditStatus());
+        if (!userId.equals(note.getUserId()) && !publicApproved && !UserContext.isAdmin()) {
             throw new BusinessException(403, "无权限操作");
         }
         return note;
