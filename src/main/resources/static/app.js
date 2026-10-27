@@ -416,7 +416,7 @@ async function runAiSummary(noteId, reloadDetail) {
     } catch (e) { notify(e.message); }
 }
 
-async function runAiAction(path, noteId, type) {
+async function runAiAction(path, noteId, type, reloadDetail = false) {
     try {
         const data = await request(path, { method: "POST", headers: headers(), body: JSON.stringify({ noteId }) });
         const title = type === "RECOMMEND" ? "AI 推荐" : "AI 评分";
@@ -424,6 +424,7 @@ async function runAiAction(path, noteId, type) {
         if (save) {
             await request("/ai/result/save", { method: "POST", headers: headers(), body: JSON.stringify({ noteId, type, content: data.content }) });
             notify(`${title}已保存`);
+            if (reloadDetail) loadNoteDetail();
         } else {
             notify("已丢弃");
         }
@@ -516,8 +517,8 @@ function renderDetailActions(note) {
             } catch (e) { notify(e.message); }
         }));
         actions.appendChild(actionButton("AI 总结", () => runAiSummary(note.id, true)));
-        actions.appendChild(actionButton("AI 推荐", () => runAiAction("/ai/recommend", note.id, "RECOMMEND")));
-        actions.appendChild(actionButton("AI 评分", () => runAiAction("/ai/score", note.id, "SCORE")));
+        actions.appendChild(actionButton("AI 推荐", () => runAiAction("/ai/recommend", note.id, "RECOMMEND", true)));
+        actions.appendChild(actionButton("AI 评分", () => runAiAction("/ai/score", note.id, "SCORE", true)));
     }
 }
 
@@ -774,7 +775,7 @@ async function loadBooks() {
         const row = document.createElement("div");
         row.className = "row";
         const cover = b.cover ? `<img class="book-cover" src="${mediaUrl(b.cover)}" alt="封面">` : "";
-        row.innerHTML = `${cover}<span><b>${escapeHtml(b.bookName)}</b> · ${escapeHtml(b.author || "")} · ${escapeHtml(b.publisher || "")}</span>`;
+        row.innerHTML = `${cover}<span><b>${escapeHtml(b.bookName)}</b> · ${escapeHtml(b.author || "")}</span>`;
         const del = document.createElement("button");
         del.textContent = "删除";
         del.onclick = async () => {
@@ -801,8 +802,6 @@ $("#book-form").addEventListener("submit", async (e) => {
     const payload = {
         bookName: $("#book-name").value.trim(),
         author: $("#book-author").value.trim(),
-        publisher: $("#book-publisher").value.trim(),
-        isbn: $("#book-isbn").value.trim(),
         description: $("#book-description").value.trim(),
         cover
     };
@@ -811,6 +810,23 @@ $("#book-form").addEventListener("submit", async (e) => {
         $("#book-form").reset();
         notify("已收藏");
         loadBooks();
+    } catch (e) { notify(e.message); }
+});
+
+$("#book-cover").addEventListener("change", async () => {
+    const file = $("#book-cover").files[0];
+    if (!file) return;
+    const fd = new FormData();
+    fd.append("file", file);
+    try {
+        notify("正在识别图片…");
+        const res = await fetch(API + "/books/recognize", { method: "POST", headers: authHeaders(), body: fd });
+        const body = await res.json();
+        if (body.code !== 200) throw new Error(body.message || "识别失败");
+        if (body.data.title) $("#book-name").value = body.data.title;
+        if (body.data.author) $("#book-author").value = body.data.author;
+        if (body.data.description) $("#book-description").value = body.data.description;
+        notify("识别完成，可修改后保存");
     } catch (e) { notify(e.message); }
 });
 
