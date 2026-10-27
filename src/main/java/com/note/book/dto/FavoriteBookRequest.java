@@ -22,4 +22,7 @@ public class FavoriteBookRequest {
 
     @Size(max = 2000, message = "简介长度不能超过2000")
     private String description;
+
+    @Size(max = 500, message = "封面地址长度不能超过500")
+    private String cover;
 }

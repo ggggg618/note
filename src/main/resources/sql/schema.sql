@@ -110,6 +110,7 @@ CREATE TABLE `favorite_book` (
     `publisher` VARCHAR(100) NULL COMMENT '出版社',
     `isbn` VARCHAR(50) NULL COMMENT 'ISBN',
     `description` VARCHAR(2000) NULL COMMENT '简介',
+    `cover` VARCHAR(500) NULL COMMENT '封面地址',
     `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '收藏时间',
     PRIMARY KEY (`id`),
     UNIQUE KEY `uk_favorite_book_user_book` (`user_id`, `book_name`)
@@ -151,7 +152,7 @@ CREATE TABLE `note_ai` (
     `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     PRIMARY KEY (`id`),
-    UNIQUE KEY `uk_note_ai_note_type` (`note_id`, `type`)
+    UNIQUE KEY `uk_note_ai_note` (`note_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='笔记AI辅助结果表';
 
 CREATE TABLE `conversation` (

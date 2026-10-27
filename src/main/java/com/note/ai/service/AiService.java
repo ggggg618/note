@@ -62,9 +62,14 @@ public class AiService {
     @Transactional
     public AiResponse saveResult(Long userId, SaveAiRequest request) {
         requireOwnedNote(userId, request.getNoteId());
-        NoteAi existing = noteAiMapper.selectOne(new LambdaQueryWrapper<NoteAi>()
+        List<NoteAi> results = noteAiMapper.selectList(new LambdaQueryWrapper<NoteAi>()
                 .eq(NoteAi::getNoteId, request.getNoteId())
-                .eq(NoteAi::getType, request.getType()));
+                .orderByDesc(NoteAi::getUpdatedAt)
+                .orderByDesc(NoteAi::getId));
+        NoteAi existing = results.stream().findFirst().orElse(null);
+        for (int i = 1; i < results.size(); i++) {
+            noteAiMapper.deleteById(results.get(i).getId());
+        }
 
         LocalDateTime now = LocalDateTime.now();
         if (existing == null) {
@@ -76,6 +81,7 @@ public class AiService {
             existing.setUpdatedAt(now);
             noteAiMapper.insert(existing);
         } else {
+            existing.setType(request.getType());
             existing.setContent(request.getContent());
             existing.setUpdatedAt(now);
             noteAiMapper.updateById(existing);
@@ -84,11 +90,13 @@ public class AiService {
         return new AiResponse(existing.getType(), existing.getContent());
     }
 
-    public NoteAi getResult(Long userId, Long noteId, String type) {
+    public NoteAi getResult(Long userId, Long noteId) {
         requireOwnedNote(userId, noteId);
-        return noteAiMapper.selectOne(new LambdaQueryWrapper<NoteAi>()
+        List<NoteAi> results = noteAiMapper.selectList(new LambdaQueryWrapper<NoteAi>()
                 .eq(NoteAi::getNoteId, noteId)
-                .eq(NoteAi::getType, type));
+                .orderByDesc(NoteAi::getUpdatedAt)
+                .orderByDesc(NoteAi::getId));
+        return results.stream().findFirst().orElse(null);
     }
 
     public ConversationResponse createConversation(Long userId) {
@@ -122,7 +130,7 @@ public class AiService {
                         .eq(ConversationMessage::getConversationId, conversationId)
                         .orderByDesc(ConversationMessage::getCreatedAt)
                         .orderByDesc(ConversationMessage::getId)
-                        .last("LIMIT 10"));
+                        .last("LIMIT 20"));
         Collections.reverse(recentMessages);
 
         StringBuilder context = new StringBuilder("历史消息：\n");

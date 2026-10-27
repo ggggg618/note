@@ -88,6 +88,8 @@ Authorization: Bearer <token>
 | GET | `/api/ai/conversations/{id}/messages` | 消息列表 | 会话归属用户 |
 | DELETE | `/api/ai/conversations/{id}` | 删除会话 | 会话归属用户 |
 
+AI 辅助结果采用“一篇笔记只保存一种结果”的规则。再次保存总结、推荐或评分时，会覆盖该笔记之前保存的 AI 结果。
+
 ## 请求示例
 
 注册：

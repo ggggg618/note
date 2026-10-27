@@ -773,7 +773,8 @@ async function loadBooks() {
     (data.records || []).forEach((b) => {
         const row = document.createElement("div");
         row.className = "row";
-        row.innerHTML = `<span><b>${escapeHtml(b.bookName)}</b> · ${escapeHtml(b.author || "")} · ${escapeHtml(b.publisher || "")}</span>`;
+        const cover = b.cover ? `<img class="book-cover" src="${mediaUrl(b.cover)}" alt="封面">` : "";
+        row.innerHTML = `${cover}<span><b>${escapeHtml(b.bookName)}</b> · ${escapeHtml(b.author || "")} · ${escapeHtml(b.publisher || "")}</span>`;
         const del = document.createElement("button");
         del.textContent = "删除";
         del.onclick = async () => {
@@ -787,12 +788,23 @@ async function loadBooks() {
 
 $("#book-form").addEventListener("submit", async (e) => {
     e.preventDefault();
+    let cover = "";
+    const file = $("#book-cover").files[0];
+    if (file) {
+        const fd = new FormData();
+        fd.append("file", file);
+        const res = await fetch(API + "/files", { method: "POST", headers: authHeaders(), body: fd });
+        const body = await res.json();
+        if (body.code !== 200) throw new Error(body.message || "封面上传失败");
+        cover = body.data;
+    }
     const payload = {
         bookName: $("#book-name").value.trim(),
         author: $("#book-author").value.trim(),
         publisher: $("#book-publisher").value.trim(),
         isbn: $("#book-isbn").value.trim(),
-        description: $("#book-description").value.trim()
+        description: $("#book-description").value.trim(),
+        cover
     };
     try {
         await request("/books", { method: "POST", headers: headers(), body: JSON.stringify(payload) });

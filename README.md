@@ -59,6 +59,12 @@ mvn spring-boot:run
 http://localhost:8080
 ```
 
+接口文档可通过 Swagger UI 查看：
+
+```text
+http://localhost:8080/swagger-ui.html
+```
+
 首次启动会自动创建管理员账号：
 
 ```text

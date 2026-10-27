@@ -59,6 +59,7 @@ CREATE TABLE IF NOT EXISTS favorite_book (
     publisher VARCHAR(100),
     isbn VARCHAR(50),
     description VARCHAR(2000),
+    cover VARCHAR(500),
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT uk_favorite_book_user_book UNIQUE (user_id, book_name)
 );
@@ -92,7 +93,7 @@ CREATE TABLE IF NOT EXISTS note_ai (
     content TEXT NOT NULL,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT uk_note_ai_note_type UNIQUE (note_id, type)
+    CONSTRAINT uk_note_ai_note UNIQUE (note_id)
 );
 
 CREATE TABLE IF NOT EXISTS conversation (

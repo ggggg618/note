@@ -16,6 +16,8 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.ArgumentCaptor;
 
+import java.util.List;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.atLeastOnce;
@@ -43,17 +45,27 @@ class AiServiceTest {
     private AiService aiService;
 
     @Test
-    void savesEachAiTypeIndependently() {
+    void replacesExistingAiResultForSameNote() {
         Note note = new Note();
         note.setId(1L);
         note.setUserId(1L);
         when(noteMapper.selectById(1L)).thenReturn(note);
-        when(noteAiMapper.selectOne(any())).thenReturn(null);
+        when(noteAiMapper.selectList(any())).thenReturn(List.of());
 
         aiService.saveResult(1L, saveRequest("SUMMARY", "总结"));
+        verify(noteAiMapper, times(1)).insert(any(NoteAi.class));
+
+        NoteAi existing = new NoteAi();
+        existing.setId(10L);
+        existing.setNoteId(1L);
+        existing.setType("SUMMARY");
+        existing.setContent("总结");
+        when(noteAiMapper.selectList(any())).thenReturn(List.of(existing));
+
         aiService.saveResult(1L, saveRequest("RECOMMEND", "推荐"));
 
-        verify(noteAiMapper, times(2)).insert(any(NoteAi.class));
+        verify(noteAiMapper, times(1)).updateById(existing);
+        verify(noteAiMapper, times(1)).insert(any(NoteAi.class));
     }
 
     @Test

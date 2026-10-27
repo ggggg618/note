@@ -37,6 +37,14 @@ public class FileStorageService {
     }
 
     public String store(MultipartFile file) {
+        return store(file, false);
+    }
+
+    public String storeImage(MultipartFile file) {
+        return store(file, true);
+    }
+
+    private String store(MultipartFile file, boolean imageOnly) {
         if (file == null || file.isEmpty()) {
             throw new BusinessException("File is empty");
         }
@@ -50,6 +58,9 @@ public class FileStorageService {
         boolean video = VIDEO_EXTENSIONS.contains(extension);
         if (!image && !video) {
             throw new BusinessException("Unsupported file type");
+        }
+        if (imageOnly && video) {
+            throw new BusinessException("仅支持图片文件");
         }
         long maxSize = video ? 50L * 1024 * 1024 : 10L * 1024 * 1024;
         if (file.getSize() > maxSize) {

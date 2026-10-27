@@ -8,7 +8,6 @@ import com.note.ai.dto.ConversationResponse;
 import com.note.ai.dto.SaveAiRequest;
 import com.note.ai.entity.NoteAi;
 import com.note.ai.service.AiService;
-import com.note.common.BusinessException;
 import com.note.common.Result;
 import com.note.common.UserContext;
 import jakarta.validation.Valid;
@@ -19,18 +18,14 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
-import java.util.Set;
 
 @RestController
 @RequestMapping("/api/ai")
 @RequiredArgsConstructor
 public class AiController {
-
-    private static final Set<String> AI_TYPES = Set.of("SUMMARY", "RECOMMEND", "SCORE");
 
     private final AiService aiService;
 
@@ -55,12 +50,8 @@ public class AiController {
     }
 
     @GetMapping("/result/{noteId}")
-    public Result<AiResponse> getResult(@PathVariable Long noteId,
-                                        @RequestParam(defaultValue = "SUMMARY") String type) {
-        if (!AI_TYPES.contains(type)) {
-            throw new BusinessException("无效的AI结果类型");
-        }
-        NoteAi result = aiService.getResult(UserContext.id(), noteId, type);
+    public Result<AiResponse> getResult(@PathVariable Long noteId) {
+        NoteAi result = aiService.getResult(UserContext.id(), noteId);
         return Result.ok(result == null ? null : new AiResponse(result.getType(), result.getContent()));
     }
 

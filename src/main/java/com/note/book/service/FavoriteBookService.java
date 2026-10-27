@@ -33,6 +33,7 @@ public class FavoriteBookService {
         book.setPublisher(request.getPublisher());
         book.setIsbn(request.getIsbn());
         book.setDescription(request.getDescription());
+        book.setCover(request.getCover());
         book.setCreatedAt(LocalDateTime.now());
         try {
             favoriteBookMapper.insert(book);
@@ -67,6 +68,6 @@ public class FavoriteBookService {
 
     private FavoriteBookResponse toResponse(FavoriteBook book) {
         return new FavoriteBookResponse(book.getId(), book.getBookName(), book.getAuthor(),
-                book.getPublisher(), book.getIsbn(), book.getDescription(), book.getCreatedAt());
+                book.getPublisher(), book.getIsbn(), book.getDescription(), book.getCover(), book.getCreatedAt());
     }
 }

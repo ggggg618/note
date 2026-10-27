@@ -20,6 +20,10 @@ spring:
         options:
           model: ${AI_MODEL:gpt-4o-mini}
 
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+
 mybatis-plus:
   configuration:
     map-underscore-to-camel-case: true

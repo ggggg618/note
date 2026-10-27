@@ -36,4 +36,12 @@ class FileStorageServiceTest {
         MockMultipartFile fake = new MockMultipartFile("file", "fake.png", "image/png", "not an image".getBytes());
         assertThrows(BusinessException.class, () -> service.store(fake));
     }
+
+    @Test
+    void rejectsVideoAsAvatarImage() {
+        FileStorageService service = new FileStorageService(tempDir.toString());
+        byte[] ftypVideo = new byte[]{0, 0, 0, 0, 'f', 't', 'y', 'p'};
+        MockMultipartFile video = new MockMultipartFile("file", "avatar.mp4", "video/mp4", ftypVideo);
+        assertThrows(BusinessException.class, () -> service.storeImage(video));
+    }
 }

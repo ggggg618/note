@@ -217,7 +217,7 @@ public class NoteService {
             return urls;
         }
         for (int i = 0; i < files.length; i++) {
-            String url = fileStorageService.store(files[i]);
+            String url = fileStorageService.storeImage(files[i]);
             NoteImage image = new NoteImage();
             image.setNoteId(noteId);
             image.setUrl(url);
@@ -339,9 +339,10 @@ public class NoteService {
         }
         return noteAiMapper.selectList(new LambdaQueryWrapper<NoteAi>()
                         .in(NoteAi::getNoteId, noteIds)
-                        .eq(NoteAi::getType, "SUMMARY"))
+                        .orderByDesc(NoteAi::getUpdatedAt)
+                        .orderByDesc(NoteAi::getId))
                 .stream()
-                .collect(Collectors.toMap(NoteAi::getNoteId, NoteAi::getContent));
+                .collect(Collectors.toMap(NoteAi::getNoteId, NoteAi::getContent, (first, second) -> first));
     }
 
     private Note getExistingNote(Long noteId) {

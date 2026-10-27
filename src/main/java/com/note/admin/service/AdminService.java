@@ -88,6 +88,7 @@ public class AdminService {
         checkAdmin();
         PageUtil.check(page, size);
         LambdaQueryWrapper<Note> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(Note::getVisibility, 1);
         if (auditStatus != null) {
             wrapper.eq(Note::getAuditStatus, auditStatus);
         }

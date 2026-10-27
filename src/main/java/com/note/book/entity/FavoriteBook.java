@@ -26,5 +26,7 @@ public class FavoriteBook {
 
     private String description;
 
+    private String cover;
+
     private LocalDateTime createdAt;
 }

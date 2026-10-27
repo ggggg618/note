@@ -23,5 +23,7 @@ public class FavoriteBookResponse {
 
     private String description;
 
+    private String cover;
+
     private LocalDateTime createdAt;
 }

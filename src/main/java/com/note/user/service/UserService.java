@@ -118,7 +118,7 @@ public class UserService {
 
     public String uploadAvatar(MultipartFile file) {
         User user = requireCurrentUser();
-        String url = fileStorageService.store(file);
+        String url = fileStorageService.storeImage(file);
         if (user.getAvatar() != null) {
             fileStorageService.delete(user.getAvatar());
         }
