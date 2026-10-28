@@ -148,19 +148,86 @@ src/main/java/com/note
 
 MySQL 建表脚本位于 `src/main/resources/sql/schema.sql`，共包含 11 张表：
 
-| 表名 | 关键字段 | 用途 |
-| --- | --- | --- |
-| `user` | `username`、`password`、`role`、`status`、`token_version` | 用户、管理员账号与鉴权信息 |
-| `note` | `user_id`、`title`、`content`、`visibility`、`audit_status`、`like_count` | 读书笔记及审核状态 |
-| `note_image` | `note_id`、`url`、`sort_order` | 笔记多张配图 |
-| `note_like` | `user_id`、`note_id` | 用户点赞记录 |
-| `follow` | `follower_id`、`followee_id` | 用户关注关系 |
-| `favorite_book` | `user_id`、`book_name`、`author`、`publisher`、`isbn` | 用户收藏图书 |
-| `comment` | `note_id`、`user_id`、`parent_id`、`content`、`media` | 笔记评论及回复 |
-| `ai_log` | `user_id`、`type`、`prompt`、`response`、`success` | AI 调用日志 |
-| `note_ai` | `note_id`、`type`、`content` | 笔记保存的 AI 辅助结果 |
-| `conversation` | `user_id`、`title`、`deleted` | AI 客服会话 |
-| `conversation_message` | `conversation_id`、`role`、`content` | AI 客服消息 |
+| 表名 | 字段 | 类型 | 说明 |
+| --- | --- | --- | --- |
+| `user` | `id` | `BIGINT` | 用户主键 |
+| `user` | `username` | `VARCHAR(50)` | 用户名 |
+| `user` | `password` | `VARCHAR(100)` | BCrypt 密码哈希 |
+| `user` | `nickname` | `VARCHAR(50)` | 昵称 |
+| `user` | `avatar` | `VARCHAR(255)` | 头像地址 |
+| `user` | `role` | `VARCHAR(20)` | 角色：USER/ADMIN |
+| `user` | `status` | `TINYINT` | 状态：1正常 0禁用 |
+| `user` | `token_version` | `INT` | 密码版本，用于密码修改后旧 token 失效 |
+| `user` | `created_at` | `DATETIME` | 创建时间 |
+| `user` | `updated_at` | `DATETIME` | 更新时间 |
+| `user` | `deleted` | `TINYINT` | 逻辑删除：0未删除 1已删除 |
+| `note` | `id` | `BIGINT` | 笔记主键 |
+| `note` | `user_id` | `BIGINT` | 作者用户 ID |
+| `note` | `title` | `VARCHAR(100)` | 笔记标题 |
+| `note` | `content` | `TEXT` | 笔记正文 |
+| `note` | `book_name` | `VARCHAR(100)` | 关联书名 |
+| `note` | `visibility` | `TINYINT` | 可见性：0私有 1公开 |
+| `note` | `audit_status` | `TINYINT` | 审核状态：0待审核 1已通过 2已驳回 |
+| `note` | `like_count` | `INT` | 点赞数 |
+| `note` | `created_at` | `DATETIME` | 创建时间 |
+| `note` | `updated_at` | `DATETIME` | 更新时间 |
+| `note` | `deleted` | `TINYINT` | 逻辑删除：0未删除 1已删除 |
+| `note_image` | `id` | `BIGINT` | 图片主键 |
+| `note_image` | `note_id` | `BIGINT` | 所属笔记 ID |
+| `note_image` | `url` | `VARCHAR(500)` | 图片 URL |
+| `note_image` | `sort_order` | `INT` | 排序值，越小越靠前 |
+| `note_image` | `created_at` | `DATETIME` | 创建时间 |
+| `note_image` | `deleted` | `TINYINT` | 逻辑删除：0未删除 1已删除 |
+| `note_like` | `id` | `BIGINT` | 点赞记录主键 |
+| `note_like` | `user_id` | `BIGINT` | 点赞用户 ID |
+| `note_like` | `note_id` | `BIGINT` | 被点赞笔记 ID |
+| `note_like` | `created_at` | `DATETIME` | 点赞时间 |
+| `follow` | `id` | `BIGINT` | 关注记录主键 |
+| `follow` | `follower_id` | `BIGINT` | 关注者用户 ID |
+| `follow` | `followee_id` | `BIGINT` | 被关注者用户 ID |
+| `follow` | `created_at` | `DATETIME` | 关注时间 |
+| `favorite_book` | `id` | `BIGINT` | 收藏书目主键 |
+| `favorite_book` | `user_id` | `BIGINT` | 用户 ID |
+| `favorite_book` | `book_name` | `VARCHAR(100)` | 书名 |
+| `favorite_book` | `author` | `VARCHAR(100)` | 作者 |
+| `favorite_book` | `publisher` | `VARCHAR(100)` | 出版社 |
+| `favorite_book` | `isbn` | `VARCHAR(50)` | ISBN |
+| `favorite_book` | `description` | `VARCHAR(2000)` | 简介 |
+| `favorite_book` | `cover` | `VARCHAR(500)` | 封面地址 |
+| `favorite_book` | `created_at` | `DATETIME` | 收藏时间 |
+| `comment` | `id` | `BIGINT` | 评论主键 |
+| `comment` | `note_id` | `BIGINT` | 所属笔记 ID |
+| `comment` | `user_id` | `BIGINT` | 评论用户 ID |
+| `comment` | `parent_id` | `BIGINT` | 父评论 ID，NULL 表示顶级评论 |
+| `comment` | `content` | `VARCHAR(1000)` | 评论内容 |
+| `comment` | `media` | `TEXT` | 评论媒体地址 JSON 数组 |
+| `comment` | `created_at` | `DATETIME` | 创建时间 |
+| `comment` | `updated_at` | `DATETIME` | 更新时间 |
+| `comment` | `deleted` | `TINYINT` | 逻辑删除：0未删除 1已删除 |
+| `ai_log` | `id` | `BIGINT` | AI 调用记录主键 |
+| `ai_log` | `user_id` | `BIGINT` | 发起调用的用户 ID，可为空 |
+| `ai_log` | `type` | `VARCHAR(30)` | AI 调用类型 |
+| `ai_log` | `prompt` | `TEXT` | 请求提示词 |
+| `ai_log` | `response` | `TEXT` | AI 返回内容 |
+| `ai_log` | `success` | `TINYINT` | 调用结果：1成功 0失败 |
+| `ai_log` | `created_at` | `DATETIME` | 调用时间 |
+| `note_ai` | `id` | `BIGINT` | AI 辅助结果主键 |
+| `note_ai` | `note_id` | `BIGINT` | 关联笔记 ID |
+| `note_ai` | `type` | `VARCHAR(30)` | AI 辅助结果类型 |
+| `note_ai` | `content` | `TEXT` | AI 生成内容 |
+| `note_ai` | `created_at` | `DATETIME` | 创建时间 |
+| `note_ai` | `updated_at` | `DATETIME` | 更新时间 |
+| `conversation` | `id` | `BIGINT` | 会话主键 |
+| `conversation` | `user_id` | `BIGINT` | 所属用户 ID |
+| `conversation` | `title` | `VARCHAR(100)` | 会话标题 |
+| `conversation` | `created_at` | `DATETIME` | 创建时间 |
+| `conversation` | `updated_at` | `DATETIME` | 更新时间 |
+| `conversation` | `deleted` | `TINYINT` | 逻辑删除：0未删除 1已删除 |
+| `conversation_message` | `id` | `BIGINT` | 会话消息主键 |
+| `conversation_message` | `conversation_id` | `BIGINT` | 所属会话 ID |
+| `conversation_message` | `role` | `VARCHAR(20)` | 消息角色：user/assistant |
+| `conversation_message` | `content` | `TEXT` | 消息内容 |
+| `conversation_message` | `created_at` | `DATETIME` | 发送时间 |
 
 主要约定：
 
