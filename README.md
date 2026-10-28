@@ -148,23 +148,90 @@ src/main/java/com/note
 
 接口统一返回 `{ code, message, data }`，`code` 为 `200` 表示成功。
 
-```text
-POST   /api/auth/register            注册
-POST   /api/auth/login               登录
-GET    /api/user/me                  查看当前用户
-POST   /api/notes                    新建笔记
-GET    /api/notes/my                 我的笔记（分页）
-GET    /api/notes                    公开笔记（分页，可匿名访问）
-POST   /api/likes/{noteId}           点赞
-POST   /api/follows/{userId}         关注
-POST   /api/comments                 发表评论
-GET    /api/admin/users              管理员查看用户
-POST   /api/ai/summary               生成笔记总结
-POST   /api/ai/recommend             生成适宜人群推荐
-POST   /api/ai/score                 生成笔记评分
-POST   /api/ai/result/save           保存 AI 辅助结果
-POST   /api/ai/conversations/{id}/messages   AI 客服对话
-```
+### 用户与鉴权
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| POST | `/api/auth/register` | 注册 |
+| POST | `/api/auth/login` | 登录，返回 token |
+| GET | `/api/user/me` | 查看当前用户 |
+| PUT | `/api/user/me` | 修改昵称、头像 |
+| POST | `/api/user/avatar` | 上传头像 |
+| PUT | `/api/user/password` | 修改密码 |
+| GET | `/api/users/{id}` | 查看公开用户信息 |
+
+### 笔记与文件
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| POST | `/api/notes` | 新建笔记 |
+| GET | `/api/notes/my` | 我的笔记（分页、搜索） |
+| GET | `/api/notes` | 公开笔记（分页、搜索） |
+| GET | `/api/notes/rank` | 笔记点赞数排名 |
+| GET | `/api/notes/{id}` | 笔记详情 |
+| PUT | `/api/notes/{id}` | 编辑笔记 |
+| DELETE | `/api/notes/{id}` | 删除笔记 |
+| POST | `/api/notes/{id}/images` | 上传笔记配图 |
+| DELETE | `/api/notes/images/{imageId}` | 删除指定配图 |
+| DELETE | `/api/notes/{id}/images` | 删除笔记全部配图 |
+| GET | `/api/users/{userId}/notes` | 查看用户公开笔记 |
+| POST | `/api/files` | 上传文件 |
+| GET | `/api/images/{filename}` | 访问图片或视频 |
+
+### 点赞、关注与评论
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| POST | `/api/likes/{noteId}` | 点赞 |
+| DELETE | `/api/likes/{noteId}` | 取消点赞 |
+| GET | `/api/likes/me` | 我点赞过的笔记 |
+| GET | `/api/feeds` | 关注动态 |
+| POST | `/api/follows/{userId}` | 关注用户 |
+| DELETE | `/api/follows/{userId}` | 取消关注 |
+| GET | `/api/follows/{userId}/followers` | 粉丝列表 |
+| GET | `/api/follows/{userId}/following` | 关注列表 |
+| GET | `/api/follows/rank` | 热门作者排名 |
+| GET | `/api/follows/me` | 我的关注列表 |
+| GET | `/api/users/{userId}/stats` | 用户统计信息 |
+| POST | `/api/comments` | 发表评论 |
+| GET | `/api/comments/{noteId}` | 评论列表 |
+| DELETE | `/api/comments/{id}` | 删除评论 |
+
+### 图书收藏
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| POST | `/api/books` | 收藏图书 |
+| GET | `/api/books` | 我的收藏图书列表 |
+| DELETE | `/api/books/{id}` | 删除收藏图书 |
+| POST | `/api/books/recognize` | 上传图片识别图书信息 |
+
+### AI 辅助与客服
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| POST | `/api/ai/summary` | 生成笔记总结 |
+| POST | `/api/ai/recommend` | 生成适宜人群推荐 |
+| POST | `/api/ai/score` | 生成笔记评分 |
+| POST | `/api/ai/result/save` | 保存 AI 辅助结果 |
+| GET | `/api/ai/result/{noteId}` | 查看已保存的 AI 结果 |
+| POST | `/api/ai/conversations` | 新建 AI 客服会话 |
+| GET | `/api/ai/conversations` | 会话列表 |
+| POST | `/api/ai/conversations/{id}/messages` | 发送客服消息 |
+| GET | `/api/ai/conversations/{id}/messages` | 查看会话消息 |
+| DELETE | `/api/ai/conversations/{id}` | 删除会话 |
+
+### 管理员
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| GET | `/api/admin/users` | 用户列表 |
+| PUT | `/api/admin/users/{id}/status` | 启用或禁用用户 |
+| GET | `/api/admin/notes` | 笔记列表 |
+| PUT | `/api/admin/notes/{id}/audit` | 审核笔记 |
+| PUT | `/api/admin/notes/{id}/offline` | 下架笔记 |
+| DELETE | `/api/admin/comments/{id}` | 删除违规评论 |
+| GET | `/api/admin/ai-stats` | AI 调用统计 |
 
 除注册、登录、公开笔记浏览和评论浏览外，其余接口需在请求头中携带 `Authorization: Bearer <token>`。
 
