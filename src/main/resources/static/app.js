@@ -414,12 +414,42 @@ async function runCombinedAi(noteId, reloadDetail, allowSave = true, hasExisting
     closeBtn.addEventListener("click", () => overlay.remove());
     closeBtn.classList.add("hidden");
 
+    const saveBtn = document.createElement("button");
+    saveBtn.type = "button";
+    saveBtn.textContent = "保存";
+    saveBtn.classList.add("primary", "hidden");
+
     const actions = document.createElement("div");
     actions.className = "dialog-actions";
-    actions.append(closeBtn);
+    actions.append(saveBtn, closeBtn);
     box.append(title, body, status, actions);
     overlay.appendChild(box);
     document.body.appendChild(overlay);
+
+    let generated = null;
+
+    saveBtn.addEventListener("click", async () => {
+        if (!generated) return;
+        saveBtn.disabled = true;
+        try {
+            const content = JSON.stringify(generated);
+            await request("/ai/result/save", {
+                method: "POST",
+                headers: headers(),
+                body: JSON.stringify({ noteId, type: "MIXED", content })
+            });
+            status.textContent = hasExistingResult ? "已保存并覆盖旧结果" : "已保存";
+            if (reloadDetail) {
+                loadNoteDetail();
+            } else {
+                overlay.remove();
+                openNoteDetail(noteId);
+            }
+        } catch (e) {
+            status.textContent = e.message || "保存失败";
+            saveBtn.disabled = false;
+        }
+    });
 
     const renderSection = (label, content) => {
         const section = document.createElement("div");
@@ -448,33 +478,17 @@ async function runCombinedAi(noteId, reloadDetail, allowSave = true, hasExisting
             renderSection("评分", score.content)
         );
 
+        generated = {
+            summary: summary.content,
+            recommend: recommend.content,
+            score: score.content
+        };
+
         if (allowSave) {
-            const confirmMessage = hasExistingResult
-                ? "该笔记已有 AI 辅助结果，是否覆盖？"
-                : "是否保存 AI 辅助结果？";
-            if (!(await confirmAction(confirmMessage))) {
-                status.textContent = hasExistingResult
-                    ? "已取消保存，旧结果保持不变"
-                    : "已取消保存";
-                return;
-            }
-            const content = JSON.stringify({
-                summary: summary.content,
-                recommend: recommend.content,
-                score: score.content
-            });
-            await request("/ai/result/save", {
-                method: "POST",
-                headers: headers(),
-                body: JSON.stringify({ noteId, type: "MIXED", content })
-            });
-            status.textContent = "已自动保存，旧结果已被覆盖";
-            if (reloadDetail) {
-                loadNoteDetail();
-            } else {
-                overlay.remove();
-                openNoteDetail(noteId);
-            }
+            status.textContent = hasExistingResult
+                ? "可保存并覆盖旧的 AI 辅助结果"
+                : "可保存到这篇笔记";
+            saveBtn.classList.remove("hidden");
         } else {
             status.textContent = "仅预览，未保存";
         }
@@ -1356,8 +1370,11 @@ function escapeHtml(value) {
 
 function mediaUrl(url) {
     if (!url) return "";
-    if (url.startsWith("/uploads/")) return "/api/images/" + url.substring("/uploads/".length);
-    return url;
+    const target = url.startsWith("/uploads/") ? "/api/images/" + url.substring("/uploads/".length) : url;
+    if (!target.startsWith("/api/images/")) return target;
+    const current = token();
+    if (!current) return target;
+    return target + (target.includes("?") ? "&" : "?") + "access_token=" + encodeURIComponent(current);
 }
 
 afterAuth();

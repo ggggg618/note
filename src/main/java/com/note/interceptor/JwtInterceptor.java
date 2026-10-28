@@ -30,8 +30,8 @@ public class JwtInterceptor implements HandlerInterceptor {
         if ("OPTIONS".equalsIgnoreCase(request.getMethod())) {
             return true;
         }
-        String header = request.getHeader("Authorization");
-        if (header == null || !header.startsWith("Bearer ")) {
+        String token = resolveToken(request);
+        if (token == null) {
             if (isPublicAnonymousRequest(request)) {
                 return true;
             }
@@ -39,7 +39,7 @@ public class JwtInterceptor implements HandlerInterceptor {
             return false;
         }
         try {
-            Claims claims = jwtUtil.parse(header.substring(7));
+            Claims claims = jwtUtil.parse(token);
             Long id = claims.get("userId", Number.class).longValue();
             String role = claims.get("role", String.class);
             User user = userMapper.selectById(id);
@@ -55,9 +55,27 @@ public class JwtInterceptor implements HandlerInterceptor {
             UserContext.set(new AuthUser(id, claims.getSubject(), role));
             return true;
         } catch (Exception e) {
+            if (isPublicAnonymousRequest(request)) {
+                return true;
+            }
             writeUnauthorized(response);
             return false;
         }
+    }
+
+    private String resolveToken(HttpServletRequest request) {
+        String header = request.getHeader("Authorization");
+        if (header != null && header.startsWith("Bearer ")) {
+            String value = header.substring(7).trim();
+            if (!value.isEmpty()) {
+                return value;
+            }
+        }
+        String param = request.getParameter("access_token");
+        if (param != null && !param.isBlank()) {
+            return param.trim();
+        }
+        return null;
     }
 
     @Override
