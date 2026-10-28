@@ -56,6 +56,7 @@ Authorization: Bearer <token>
 | DELETE | `/api/follows/{userId}` | 取消关注 | 登录 |
 | GET | `/api/feeds` | 关注的人的公开笔记流（分页） | 登录 |
 | GET | `/api/follows/{userId}/followers` | 粉丝列表（分页） | 登录 |
+| GET | `/api/follows/{userId}/following` | 关注列表（分页） | 登录 |
 | GET | `/api/follows/rank` | 热门作者排名（分页） | 登录 |
 | POST | `/api/comments` | 发表评论 | 登录 |
 | GET | `/api/comments/{noteId}` | 评论列表 | 公开 |
@@ -77,9 +78,9 @@ Authorization: Bearer <token>
 
 | 方法 | 路径 | 说明 | 权限 |
 | --- | --- | --- | --- |
-| POST | `/api/ai/summary` | 笔记总结 | 作者 |
-| POST | `/api/ai/recommend` | 适宜人群推荐 | 作者 |
-| POST | `/api/ai/score` | 笔记评分 | 作者 |
+| POST | `/api/ai/summary` | 笔记总结 | 登录且可查看该笔记 |
+| POST | `/api/ai/recommend` | 适宜人群推荐 | 登录且可查看该笔记 |
+| POST | `/api/ai/score` | 笔记评分 | 登录且可查看该笔记 |
 | POST | `/api/ai/result/save` | 保存 AI 结果 | 作者 |
 | GET | `/api/ai/result/{noteId}` | 查看已保存的 AI 结果 | 作者 |
 | POST | `/api/ai/conversations` | 新建会话 | 登录 |
@@ -88,7 +89,7 @@ Authorization: Bearer <token>
 | GET | `/api/ai/conversations/{id}/messages` | 消息列表 | 会话归属用户 |
 | DELETE | `/api/ai/conversations/{id}` | 删除会话 | 会话归属用户 |
 
-AI 辅助结果采用“一篇笔记只保存一种结果”的规则。再次保存总结、推荐或评分时，会覆盖该笔记之前保存的 AI 结果。
+AI 辅助结果采用“一篇笔记只保存一种结果”的规则。前端会将总结、适宜人群推荐和评分合并为一个 `MIXED` 结果，用户确认后再保存；再次保存时会覆盖该笔记之前保存的 AI 结果。
 
 ## 请求示例
 

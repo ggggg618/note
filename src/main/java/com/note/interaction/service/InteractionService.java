@@ -222,6 +222,35 @@ public class InteractionService {
         return new PageResult<>(fanPage.getTotal(), fanPage.getCurrent(), fanPage.getSize(), records);
     }
 
+    public PageResult<AuthorResponse> listFollowingUsers(Long userId, long page, long size) {
+        requireUser(userId);
+        PageUtil.check(page, size);
+        Page<Follow> followingPage = followMapper.selectPage(new Page<>(page, size),
+                new LambdaQueryWrapper<Follow>()
+                        .eq(Follow::getFollowerId, userId)
+                        .orderByDesc(Follow::getCreatedAt));
+
+        List<Long> followeeIds = followingPage.getRecords().stream()
+                .map(Follow::getFolloweeId)
+                .collect(Collectors.toList());
+        Map<Long, User> users = authorsById(followeeIds);
+        Map<Long, Long> noteCounts = noteCountsByUser(followeeIds);
+        Map<Long, Long> followerCounts = followerCountsByUser(followeeIds);
+        List<AuthorResponse> records = followingPage.getRecords().stream()
+                .map(follow -> {
+                    User user = users.get(follow.getFolloweeId());
+                    if (user == null) {
+                        return null;
+                    }
+                    return new AuthorResponse(user.getId(), user.getUsername(), user.getNickname(), user.getAvatar(),
+                            safeCount(noteCounts.get(user.getId())), safeCount(followerCounts.get(user.getId())));
+                })
+                .filter(Objects::nonNull)
+                .collect(Collectors.toList());
+
+        return new PageResult<>(followingPage.getTotal(), followingPage.getCurrent(), followingPage.getSize(), records);
+    }
+
     public PageResult<AuthorResponse> hotAuthors(long page, long size) {
         PageUtil.check(page, size);
         long offset = (page - 1) * size;

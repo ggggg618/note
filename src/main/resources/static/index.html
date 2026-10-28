@@ -42,7 +42,13 @@
     <section id="notes-view" class="view hidden">
         <div class="section-head">
             <h2>我的笔记</h2>
-            <button id="new-note">新建笔记</button>
+            <div class="section-tools">
+                <div class="search-row">
+                    <input id="my-search" placeholder="搜索我的笔记">
+                    <button id="my-search-btn">搜索</button>
+                </div>
+                <button id="new-note">新建笔记</button>
+            </div>
         </div>
         <div id="notes-list" class="grid"></div>
         <button class="more-btn hidden" id="notes-more">加载更多</button>
@@ -52,7 +58,7 @@
         <div class="section-head">
             <h2>公开笔记</h2>
             <div class="search-row">
-                <input id="public-search" placeholder="搜索标题或正文">
+                <input id="public-search" placeholder="搜索标题、正文或书名">
                 <button id="public-search-btn">搜索</button>
             </div>
         </div>

@@ -36,8 +36,9 @@ public class NoteController {
     @GetMapping("/my")
     public Result<PageResult<NoteResponse>> listMyNotes(
             @RequestParam(defaultValue = "1") long page,
-            @RequestParam(defaultValue = "10") long size) {
-        return Result.ok(noteService.listMyNotes(UserContext.id(), page, size));
+            @RequestParam(defaultValue = "10") long size,
+            @RequestParam(required = false) String keyword) {
+        return Result.ok(noteService.listMyNotes(UserContext.id(), page, size, keyword));
     }
 
     @GetMapping

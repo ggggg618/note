@@ -2,6 +2,7 @@ package com.note.note.service;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
@@ -137,14 +138,23 @@ public class NoteService {
         }
     }
 
-    public PageResult<NoteResponse> listMyNotes(Long userId, long page, long size) {
+    public PageResult<NoteResponse> listMyNotes(Long userId, long page, long size, String keyword) {
         requireUser(userId);
         PageUtil.check(page, size);
+        LambdaQueryWrapper<Note> wrapper = new LambdaQueryWrapper<Note>()
+                .eq(Note::getUserId, userId)
+                .orderByDesc(Note::getCreatedAt);
+        if (keyword != null && !keyword.isBlank()) {
+            String keywordLike = "%" + escapeLike(keyword.trim()) + "%";
+            wrapper.and(w -> w.like(Note::getTitle, keywordLike)
+                    .or()
+                    .like(Note::getContent, keywordLike)
+                    .or()
+                    .like(Note::getBookName, keywordLike));
+        }
         Page<Note> notePage = noteMapper.selectPage(
                 new Page<>(page, size),
-                new LambdaQueryWrapper<Note>()
-                        .eq(Note::getUserId, userId)
-                        .orderByDesc(Note::getCreatedAt)
+                wrapper
         );
         return toPageResult(notePage, page, size);
     }
@@ -159,7 +169,9 @@ public class NoteService {
             String keywordLike = "%" + escapeLike(keyword.trim()) + "%";
             wrapper.and(w -> w.like(Note::getTitle, keywordLike)
                     .or()
-                    .like(Note::getContent, keywordLike));
+                    .like(Note::getContent, keywordLike)
+                    .or()
+                    .like(Note::getBookName, keywordLike));
         }
         Page<Note> notePage = noteMapper.selectPage(new Page<>(page, size), wrapper);
         return toPageResult(notePage, page, size);
@@ -266,14 +278,32 @@ public class NoteService {
         List<String> images = listImages(note.getId());
         List<NoteAi> aiResults = noteAiMapper.selectList(new LambdaQueryWrapper<NoteAi>()
                 .eq(NoteAi::getNoteId, note.getId()));
-        String summary = aiResults.stream().filter(a -> "SUMMARY".equals(a.getType()))
-                .map(NoteAi::getContent).findFirst().orElse(null);
-        String recommend = aiResults.stream().filter(a -> "RECOMMEND".equals(a.getType()))
-                .map(NoteAi::getContent).findFirst().orElse(null);
-        String score = aiResults.stream().filter(a -> "SCORE".equals(a.getType()))
-                .map(NoteAi::getContent).findFirst().orElse(null);
+        NoteAi ai = aiResults.stream().findFirst().orElse(null);
+        String summary = null;
+        String recommend = null;
+        String score = null;
+        String aiResult = null;
+        if (ai != null) {
+            if ("MIXED".equals(ai.getType())) {
+                try {
+                    JsonNode node = objectMapper.readTree(ai.getContent());
+                    summary = node.path("summary").asText(null);
+                    recommend = node.path("recommend").asText(null);
+                    score = node.path("score").asText(null);
+                } catch (Exception ignored) {
+                }
+                aiResult = ai.getContent();
+            } else if ("SUMMARY".equals(ai.getType())) {
+                summary = ai.getContent();
+                aiResult = summary;
+            } else if ("RECOMMEND".equals(ai.getType())) {
+                recommend = ai.getContent();
+            } else if ("SCORE".equals(ai.getType())) {
+                score = ai.getContent();
+            }
+        }
         NoteResponse response = buildResponse(note, images, summary);
-        response.setAiResult(summary);
+        response.setAiResult(aiResult);
         response.setAiSummary(summary);
         response.setAiRecommend(recommend);
         response.setAiScore(score);

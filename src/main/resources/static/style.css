@@ -41,6 +41,7 @@ button.primary, button[type="submit"] { background: var(--accent); color: #fff; 
 .view { max-width: 1080px; margin: 0 auto; padding: 24px; }
 .hidden { display: none !important; }
 .section-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+.section-tools { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
 .note-card, .auth-card {
     background: var(--card);
@@ -221,8 +222,28 @@ input, textarea, select {
 }
 
 .dialog-label { font-size: 14px; }
+.follow-list-box { width: min(92vw, 520px); max-height: 82vh; overflow: auto; }
+.follow-list { display: flex; flex-direction: column; gap: 8px; margin: 12px 0; }
+.follow-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px;
+    text-align: left;
+    background: #f9fafb;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+}
+.follow-row span:last-child { color: var(--muted); font-size: 13px; }
 .ai-result-box { max-height: 80vh; overflow: auto; }
 .ai-result-content { max-height: 50vh; overflow: auto; white-space: pre-wrap; line-height: 1.6; background: #f9fafb; padding: 10px; border-radius: 6px; }
+.ai-assistant-box { width: min(94vw, 720px); max-height: 86vh; overflow: auto; }
+.ai-assistant-content { display: flex; flex-direction: column; gap: 12px; }
+.ai-section { border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+.ai-section-title { padding: 8px 10px; font-weight: 700; background: #f3f4f6; border-bottom: 1px solid var(--line); }
+.ai-section-content { padding: 10px; white-space: pre-wrap; line-height: 1.6; }
+.ai-status { margin-top: 10px; font-size: 13px; color: var(--accent-2); }
 
 .dialog-actions { display: flex; justify-content: flex-end; gap: 8px; }
 .chat-layout {

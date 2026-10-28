@@ -87,53 +87,6 @@ function confirmAction(message) {
     });
 }
 
-function confirmAiResult(title, content, allowSave = true) {
-    return new Promise((resolve) => {
-        const overlay = document.createElement("div");
-        overlay.className = "dialog-overlay";
-        const box = document.createElement("div");
-        box.className = "dialog-box ai-result-box";
-        const label = document.createElement("div");
-        label.className = "dialog-label";
-        label.textContent = title;
-        const body = document.createElement("div");
-        body.className = "ai-result-content";
-        body.textContent = content || "";
-        const row = document.createElement("div");
-        row.className = "dialog-actions";
-        let discard;
-        let save;
-        let closeButton;
-        if (allowSave) {
-            discard = document.createElement("button");
-            discard.type = "button";
-            discard.textContent = "丢弃";
-            save = document.createElement("button");
-            save.type = "button";
-            save.textContent = "保存";
-            row.append(discard, save);
-        } else {
-            closeButton = document.createElement("button");
-            closeButton.type = "button";
-            closeButton.textContent = "关闭";
-            row.append(closeButton);
-        }
-        box.append(label, body, row);
-        overlay.appendChild(box);
-        document.body.appendChild(overlay);
-        const close = (value) => {
-            overlay.remove();
-            resolve(value);
-        };
-        if (allowSave) {
-            save.addEventListener("click", () => close(true));
-            discard.addEventListener("click", () => close(false));
-        } else {
-            closeButton.addEventListener("click", () => close(false));
-        }
-    });
-}
-
 async function ensureCurrentUser() {
     if (!token()) {
         currentUserId = null;
@@ -399,9 +352,7 @@ function noteCard(note) {
         }));
     }
     if (currentUserId != null) {
-        actions.appendChild(actionButton("AI 总结", () => runAiSummary(note.id, false, isOwn)));
-        actions.appendChild(actionButton("AI 推荐", () => runAiAction("/ai/recommend", note.id, "RECOMMEND", false, isOwn)));
-        actions.appendChild(actionButton("AI 评分", () => runAiAction("/ai/score", note.id, "SCORE", false, isOwn)));
+        actions.appendChild(actionButton("AI 辅助", () => runCombinedAi(note.id, false, isOwn, note.aiSummary || note.aiRecommend || note.aiScore)));
     }
     el.appendChild(actions);
     return el;
@@ -440,35 +391,98 @@ function makeFollowButton(targetId, onChanged) {
     return btn;
 }
 
-async function runAiSummary(noteId, reloadDetail, allowSave = true) {
-    try {
-        const data = await request("/ai/summary", { method: "POST", headers: headers(), body: JSON.stringify({ noteId }) });
-        const save = await confirmAiResult("AI 总结", data.content, allowSave);
-        if (!allowSave) return;
-        if (save) {
-            await request("/ai/result/save", { method: "POST", headers: headers(), body: JSON.stringify({ noteId, type: "SUMMARY", content: data.content }) });
-            notify("AI 总结已保存");
-            if (reloadDetail) loadNoteDetail();
-        } else {
-            notify("已丢弃");
-        }
-    } catch (e) { notify(e.message); }
-}
+async function runCombinedAi(noteId, reloadDetail, allowSave = true, hasExistingResult = false) {
+    const overlay = document.createElement("div");
+    overlay.className = "dialog-overlay";
+    const box = document.createElement("div");
+    box.className = "dialog-box ai-assistant-box";
 
-async function runAiAction(path, noteId, type, reloadDetail = false, allowSave = true) {
+    const title = document.createElement("div");
+    title.className = "dialog-label";
+    title.textContent = "AI 辅助";
+
+    const body = document.createElement("div");
+    body.className = "ai-assistant-content";
+    body.textContent = "正在生成总结、适宜人群和评分...";
+
+    const status = document.createElement("div");
+    status.className = "ai-status";
+
+    const closeBtn = document.createElement("button");
+    closeBtn.type = "button";
+    closeBtn.textContent = "关闭";
+    closeBtn.addEventListener("click", () => overlay.remove());
+    closeBtn.classList.add("hidden");
+
+    const actions = document.createElement("div");
+    actions.className = "dialog-actions";
+    actions.append(closeBtn);
+    box.append(title, body, status, actions);
+    overlay.appendChild(box);
+    document.body.appendChild(overlay);
+
+    const renderSection = (label, content) => {
+        const section = document.createElement("div");
+        section.className = "ai-section";
+        const sectionTitle = document.createElement("div");
+        sectionTitle.className = "ai-section-title";
+        sectionTitle.textContent = label;
+        const sectionContent = document.createElement("div");
+        sectionContent.className = "ai-section-content";
+        sectionContent.textContent = content || "暂无结果";
+        section.append(sectionTitle, sectionContent);
+        return section;
+    };
+
     try {
-        const data = await request(path, { method: "POST", headers: headers(), body: JSON.stringify({ noteId }) });
-        const title = type === "RECOMMEND" ? "AI 推荐" : "AI 评分";
-        const save = await confirmAiResult(title, data.content, allowSave);
-        if (!allowSave) return;
-        if (save) {
-            await request("/ai/result/save", { method: "POST", headers: headers(), body: JSON.stringify({ noteId, type, content: data.content }) });
-            notify(`${title}已保存`);
-            if (reloadDetail) loadNoteDetail();
+        const [summary, recommend, score] = await Promise.all([
+            request("/ai/summary", { method: "POST", headers: headers(), body: JSON.stringify({ noteId }) }),
+            request("/ai/recommend", { method: "POST", headers: headers(), body: JSON.stringify({ noteId }) }),
+            request("/ai/score", { method: "POST", headers: headers(), body: JSON.stringify({ noteId }) })
+        ]);
+
+        body.innerHTML = "";
+        body.append(
+            renderSection("总结", summary.content),
+            renderSection("适宜人群", recommend.content),
+            renderSection("评分", score.content)
+        );
+
+        if (allowSave) {
+            const confirmMessage = hasExistingResult
+                ? "该笔记已有 AI 辅助结果，是否覆盖？"
+                : "是否保存 AI 辅助结果？";
+            if (!(await confirmAction(confirmMessage))) {
+                status.textContent = hasExistingResult
+                    ? "已取消保存，旧结果保持不变"
+                    : "已取消保存";
+                return;
+            }
+            const content = JSON.stringify({
+                summary: summary.content,
+                recommend: recommend.content,
+                score: score.content
+            });
+            await request("/ai/result/save", {
+                method: "POST",
+                headers: headers(),
+                body: JSON.stringify({ noteId, type: "MIXED", content })
+            });
+            status.textContent = "已自动保存，旧结果已被覆盖";
+            if (reloadDetail) {
+                loadNoteDetail();
+            } else {
+                overlay.remove();
+                openNoteDetail(noteId);
+            }
         } else {
-            notify("已丢弃");
+            status.textContent = "仅预览，未保存";
         }
-    } catch (e) { notify(e.message); }
+    } catch (e) {
+        status.textContent = e.message || "AI 辅助生成失败";
+    } finally {
+        closeBtn.classList.remove("hidden");
+    }
 }
 
 function showDetail() {
@@ -506,7 +520,7 @@ async function loadNoteDetail() {
 
         const aiParts = [];
         if (note.aiSummary) aiParts.push(`<p><b>AI 总结：</b>${escapeHtml(note.aiSummary)}</p>`);
-        if (note.aiRecommend) aiParts.push(`<p><b>AI 推荐：</b>${escapeHtml(note.aiRecommend)}</p>`);
+        if (note.aiRecommend) aiParts.push(`<p><b>AI 适宜人群：</b>${escapeHtml(note.aiRecommend)}</p>`);
         if (note.aiScore) aiParts.push(`<p><b>AI 评分：</b>${escapeHtml(note.aiScore)}</p>`);
         $("#detail-ai").innerHTML = aiParts.length ? aiParts.join("") : "暂无 AI 结果";
         document.querySelectorAll("#detail-view h3, #detail-comments, #detail-view .comment-form")
@@ -559,9 +573,7 @@ function renderDetailActions(note) {
         }));
     }
     if (currentUserId != null) {
-        actions.appendChild(actionButton("AI 总结", () => runAiSummary(note.id, true, isOwn)));
-        actions.appendChild(actionButton("AI 推荐", () => runAiAction("/ai/recommend", note.id, "RECOMMEND", true, isOwn)));
-        actions.appendChild(actionButton("AI 评分", () => runAiAction("/ai/score", note.id, "SCORE", true, isOwn)));
+        actions.appendChild(actionButton("AI 辅助", () => runCombinedAi(note.id, true, isOwn, note.aiSummary || note.aiRecommend || note.aiScore)));
     }
 }
 
@@ -710,7 +722,10 @@ async function loadAuthorPage() {
         } else {
             avatar.textContent = (author.nickname || author.username).slice(0, 1);
         }
-        $("#author-stats").innerHTML = `笔记 ${stats.noteCount} · 粉丝 ${stats.followerCount} · 关注 ${stats.followingCount}`;
+        const statsEl = $("#author-stats");
+        statsEl.innerHTML = `笔记 ${stats.noteCount} · <button type="button" class="link-btn" id="author-fans">粉丝 ${stats.followerCount}</button> · <button type="button" class="link-btn" id="author-following">关注 ${stats.followingCount}</button>`;
+        $("#author-fans").addEventListener("click", () => openFollowList(currentAuthorId, "followers"));
+        $("#author-following").addEventListener("click", () => openFollowList(currentAuthorId, "following"));
 
         const followWrap = $("#author-follow");
         followWrap.innerHTML = "";
@@ -727,11 +742,91 @@ async function loadAuthorPage() {
     }
 }
 
+function openFollowList(userId, type) {
+    const overlay = document.createElement("div");
+    overlay.className = "dialog-overlay";
+    const box = document.createElement("div");
+    box.className = "dialog-box follow-list-box";
+
+    const title = document.createElement("div");
+    title.className = "dialog-label";
+    title.textContent = type === "followers" ? "粉丝列表" : "关注列表";
+
+    const list = document.createElement("div");
+    list.className = "follow-list";
+
+    const moreBtn = document.createElement("button");
+    moreBtn.type = "button";
+    moreBtn.className = "more-btn hidden";
+    moreBtn.textContent = "加载更多";
+
+    const closeBtn = document.createElement("button");
+    closeBtn.type = "button";
+    closeBtn.textContent = "关闭";
+    closeBtn.addEventListener("click", () => overlay.remove());
+
+    const actions = document.createElement("div");
+    actions.className = "dialog-actions";
+    actions.append(closeBtn);
+    box.append(title, list, moreBtn, actions);
+    overlay.appendChild(box);
+    document.body.appendChild(overlay);
+
+    let page = 1;
+    let finished = false;
+
+    const renderRow = (author) => {
+        const row = document.createElement("button");
+        row.type = "button";
+        row.className = "follow-row";
+        const name = document.createElement("span");
+        name.textContent = author.nickname || author.username;
+        const meta = document.createElement("span");
+        meta.textContent = `笔记 ${author.noteCount} · 粉丝 ${author.followerCount}`;
+        row.append(name, meta);
+        row.addEventListener("click", () => {
+            overlay.remove();
+            openAuthorPage(author.id);
+        });
+        return row;
+    };
+
+    const load = async () => {
+        if (finished) return;
+        const endpoint = type === "followers"
+            ? `/follows/${userId}/followers`
+            : `/follows/${userId}/following`;
+        try {
+            const data = await request(`${endpoint}?page=${page}&size=20`);
+            const records = data.records || [];
+            if (records.length === 0) {
+                if (page === 1) list.textContent = type === "followers" ? "暂无粉丝" : "暂无关注";
+                finished = true;
+                moreBtn.classList.add("hidden");
+                return;
+            }
+            records.forEach((author) => list.appendChild(renderRow(author)));
+            page++;
+            const hasMore = records.length === 20 && (data.total == null || (page - 1) * 20 < data.total);
+            finished = !hasMore;
+            moreBtn.classList.toggle("hidden", !hasMore);
+        } catch (e) {
+            notify(e.message);
+            overlay.remove();
+        }
+    };
+
+    moreBtn.addEventListener("click", load);
+    load();
+}
+
 async function loadMyNotes() {
     await ensureCurrentUser();
     await loadLikedNotes();
     await loadFollowingIds();
-    await loadPaged("notes", "#notes-list", "#notes-more", "/notes/my", "你还没有写过笔记，点右上角“新建笔记”开始吧", (n) => $("#notes-list").appendChild(noteCard(n)));
+    const keyword = $("#my-search")?.value.trim() || "";
+    const path = keyword ? `/notes/my?keyword=${encodeURIComponent(keyword)}` : "/notes/my";
+    await loadPaged("notes", "#notes-list", "#notes-more", path, "你还没有写过笔记，点右上角“新建笔记”开始吧", (n) => $("#notes-list").appendChild(noteCard(n)));
 }
 
 async function loadPublicNotes() {
@@ -1158,6 +1253,11 @@ $("#profile-password-save").addEventListener("click", async () => {
 $("#public-search-btn").addEventListener("click", () => {
     pageState.public = 1;
     loadPublicNotes();
+});
+
+$("#my-search-btn").addEventListener("click", () => {
+    pageState.notes = 1;
+    loadMyNotes();
 });
 
 function bindMore(name, moreSel, fn) {

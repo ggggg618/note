@@ -86,6 +86,8 @@ public class JwtInterceptor implements HandlerInterceptor {
                 || uri.matches("/api/users/\\d+")
                 || uri.matches("/api/users/\\d+/notes")
                 || uri.matches("/api/users/\\d+/stats")
+                || uri.matches("/api/follows/\\d+/followers")
+                || uri.matches("/api/follows/\\d+/following")
                 || uri.matches("/api/comments/\\d+");
     }
 }

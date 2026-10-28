@@ -5,3 +5,5 @@ target/
 uploads/
 *.log
 .DS_Store
+.env
+.workbuddy/

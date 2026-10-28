@@ -2,7 +2,7 @@
 
 笔记工坊是一个面向在校学生的读书笔记社区。用户可录入书籍信息、撰写读书笔记、上传书页照片，并将笔记设为私有或公开。公开笔记可供其他同学浏览、点赞和评论，也可关注作者并查看其公开笔记。
 
-系统内置 AI 阅读助手，用于辅助而非替代用户思考：可根据笔记内容生成总结、推荐适宜人群并进行评分；同时提供多轮 AI 客服，回答平台使用相关问题。
+系统内置 AI 阅读助手，用于辅助而非替代用户思考：可一键生成笔记总结、适宜人群推荐和评分，并由用户手动选择是否保存；同时提供多轮 AI 客服，回答平台使用相关问题。
 
 ## 功能说明
 
@@ -34,7 +34,8 @@
 
 ### AI 模块
 
-- 笔记总结、适宜人群推荐、笔记评分
+- 一键生成笔记总结、适宜人群推荐、笔记评分
+- 用户确认后再保存 AI 辅助结果，避免自动修改笔记
 - 多轮 AI 客服，支持新建会话和切换历史会话
 - 未配置 AI 密钥时返回模拟结果，便于本地演示
 
@@ -51,6 +52,12 @@
 
 ```bash
 mvn spring-boot:run
+```
+
+也可以复制 `.env.example` 为 `.env`，填入自己的模型配置后运行：
+
+```bash
+./scripts/run-dev.sh
 ```
 
 待日志中出现 `Started NoteWorkshopApplication` 后，通过浏览器访问：
@@ -99,7 +106,7 @@ mvn spring-boot:run
 项目通过 OpenAI 兼容接口调用模型，可使用 OpenAI、DeepSeek、Qwen 等服务：
 
 ```bash
-export AI_BASE_URL='https://api.openai.com/v1'
+export AI_BASE_URL='https://api.openai.com'
 export AI_API_KEY='模型密钥'
 export AI_MODEL='gpt-4o-mini'
 ```
@@ -124,7 +131,7 @@ src/main/java/com/note
 ├── note          笔记与图片
 ├── interaction   点赞、关注、评论
 ├── admin         管理员后台与 AI 审计
-└── ai            AI 总结、推荐、评分、客服
+└── ai            AI 辅助、客服
 ```
 
 前端页面位于 `src/main/resources/static`，采用原生 HTML、CSS 和 JavaScript 实现。
@@ -145,6 +152,9 @@ POST   /api/follows/{userId}         关注
 POST   /api/comments                 发表评论
 GET    /api/admin/users              管理员查看用户
 POST   /api/ai/summary               生成笔记总结
+POST   /api/ai/recommend             生成适宜人群推荐
+POST   /api/ai/score                 生成笔记评分
+POST   /api/ai/result/save           保存 AI 辅助结果
 POST   /api/ai/conversations/{id}/messages   AI 客服对话
 ```
 

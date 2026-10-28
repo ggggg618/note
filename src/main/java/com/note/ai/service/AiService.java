@@ -48,7 +48,7 @@ public class AiService {
 
     public AiResponse generateRecommend(Long userId, Long noteId) {
         Note note = requireViewableNote(userId, noteId);
-        String systemPrompt = "你是一名专业的阅读推荐助手。请根据用户提供的笔记内容，结合主题和阅读深度推荐相关书籍、延伸主题或学习方法，并用中文说明推荐理由。";
+        String systemPrompt = "你是一名专业的阅读推荐助手。请根据用户提供的笔记内容，推测适合阅读该书或该主题的人群，例如年级、专业、阅读阶段、前置知识要求，并用中文说明理由。";
         String content = callAi(userId, "RECOMMEND", systemPrompt, note.getContent(), note.getVisibility() != null && note.getVisibility() == 0);
         return new AiResponse("RECOMMEND", content);
     }
@@ -146,7 +146,7 @@ public class AiService {
         String userPrompt = context + "用户：" + request.getContent();
         String systemPrompt = "你是笔记工坊平台的智能客服。只回答与本平台功能、笔记管理、账号、AI 辅助阅读等平台使用相关的问题；遇到与平台无关的问题时，请礼貌拒绝并引导用户咨询平台相关问题。"
                 + "平台实际功能路径如下：发布公开笔记请点击顶部“我的笔记”，再点“新建笔记”，填写后选择“公开”并保存，随后等待管理员审核；"
-                + "查看公开笔记在顶部“公开笔记”；关注动态在“关注动态”；AI 总结在笔记详情或卡片上；AI 客服在“AI 客服”。请按这些真实入口回答，不要编造“创作中心、发布笔记”等不存在的入口。";
+                + "查看公开笔记在顶部“公开笔记”；关注动态在“关注动态”；AI 辅助在笔记详情或卡片上；AI 客服在“AI 客服”。请按这些真实入口回答，不要编造“创作中心、发布笔记”等不存在的入口。";
 
         String reply = callAi(userId, "CHAT", systemPrompt, userPrompt, false);
         LocalDateTime now = LocalDateTime.now();
