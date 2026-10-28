@@ -144,6 +144,32 @@ src/main/java/com/note
 
 前端页面位于 `src/main/resources/static`，采用原生 HTML、CSS 和 JavaScript 实现。
 
+## 数据库表
+
+MySQL 建表脚本位于 `src/main/resources/sql/schema.sql`，共包含 11 张表：
+
+| 表名 | 关键字段 | 用途 |
+| --- | --- | --- |
+| `user` | `username`、`password`、`role`、`status`、`token_version` | 用户、管理员账号与鉴权信息 |
+| `note` | `user_id`、`title`、`content`、`visibility`、`audit_status`、`like_count` | 读书笔记及审核状态 |
+| `note_image` | `note_id`、`url`、`sort_order` | 笔记多张配图 |
+| `note_like` | `user_id`、`note_id` | 用户点赞记录 |
+| `follow` | `follower_id`、`followee_id` | 用户关注关系 |
+| `favorite_book` | `user_id`、`book_name`、`author`、`publisher`、`isbn` | 用户收藏图书 |
+| `comment` | `note_id`、`user_id`、`parent_id`、`content`、`media` | 笔记评论及回复 |
+| `ai_log` | `user_id`、`type`、`prompt`、`response`、`success` | AI 调用日志 |
+| `note_ai` | `note_id`、`type`、`content` | 笔记保存的 AI 辅助结果 |
+| `conversation` | `user_id`、`title`、`deleted` | AI 客服会话 |
+| `conversation_message` | `conversation_id`、`role`、`content` | AI 客服消息 |
+
+主要约定：
+
+- 存储引擎使用 InnoDB，字符集使用 `utf8mb4`。
+- 主键统一使用 `BIGINT` 自增。
+- 用户、笔记、评论、会话等表使用逻辑删除字段 `deleted`。
+- 时间字段统一使用 `DATETIME`。
+- 不创建物理外键约束，关系由业务层维护。
+
 ## 主要接口
 
 接口统一返回 `{ code, message, data }`，`code` 为 `200` 表示成功。
